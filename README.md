@@ -51,6 +51,20 @@ npm run preview
 
 The production build goes to `skryptonite/dist/`.
 
+## Deploy (recommended)
+
+This repo includes GitHub Actions workflows:
+
+- **CI build** on every push/PR
+- **GitHub Pages deploy** on pushes to `main`
+
+To enable Pages:
+
+1. In GitHub: **Settings → Pages**
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**
+
+Once enabled, every merge/push to `main` will publish the site.
+
 ## Using the editor
 
 ### Quick toolbar
@@ -95,3 +109,13 @@ For best results in Chrome/Edge:
 ## License
 
 MIT — see `LICENSE`.
+
+## Support
+
+Skryptonite is free and open source. If you’d like to support development, you can sponsor the project on GitHub:
+
+- https://github.com/sponsors/jimminiglitch
+
+Or tip via Venmo:
+
+- https://venmo.com/u/lilbbboy

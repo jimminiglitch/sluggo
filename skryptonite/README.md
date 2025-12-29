@@ -118,3 +118,13 @@ Project layout:
 ## License
 
 MIT — see `LICENSE`.
+
+## Support
+
+Skryptonite is free and open source. If you’d like to support development, you can sponsor the project on GitHub:
+
+- https://github.com/sponsors/jimminiglitch
+
+Or tip via Venmo:
+
+- https://venmo.com/u/lilbbboy
