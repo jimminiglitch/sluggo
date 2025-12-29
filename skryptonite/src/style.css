@@ -247,6 +247,11 @@ body {
   border-color: rgba(99, 102, 241, 0.65);
 }
 
+.quick-btn.is-active {
+  border-color: rgba(99, 102, 241, 0.65);
+  background: rgba(99, 102, 241, 0.18);
+}
+
 .quick-btn:focus-visible {
   outline: 2px solid rgba(99, 102, 241, 0.75);
   outline-offset: 2px;
