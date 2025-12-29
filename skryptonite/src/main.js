@@ -15,28 +15,6 @@ const sidebar = document.getElementById('sidebar')
 const titlePageView = document.getElementById('title-page-view')
 const tabBar = document.getElementById('tab-bar')
 
-// Cursor aura (visual aid, especially in dark paper mode)
-const cursorAura = document.createElement('div')
-cursorAura.className = 'cursor-aura'
-document.body.appendChild(cursorAura)
-let cursorAuraEnabled = false
-let cursorAuraRAF = null
-let cursorAuraLast = { x: 0, y: 0 }
-
-function setCursorAuraVisible(visible) {
-  cursorAura.classList.toggle('visible', !!visible)
-}
-
-function updateCursorAuraPosition(x, y) {
-  cursorAuraLast = { x, y }
-  if (cursorAuraRAF) return
-  cursorAuraRAF = requestAnimationFrame(() => {
-    cursorAuraRAF = null
-    cursorAura.style.left = `${cursorAuraLast.x}px`
-    cursorAura.style.top = `${cursorAuraLast.y}px`
-  })
-}
-
 // Modals
 const tutorialModal = document.getElementById('tutorial-modal')
 
@@ -619,25 +597,6 @@ const editorWrapper = document.querySelector('.editor-container')
 editorWrapper.addEventListener('scroll', () => {
   highlightActiveScene()
 })
-
-// Cursor aura tracking
-if (editorWrapper) {
-  editorWrapper.addEventListener('mouseenter', () => {
-    cursorAuraEnabled = true
-  })
-  editorWrapper.addEventListener('mouseleave', () => {
-    cursorAuraEnabled = false
-    setCursorAuraVisible(false)
-  })
-
-  editorWrapper.addEventListener('mousemove', (e) => {
-    if (!cursorAuraEnabled) return
-    const overPage = !!e.target?.closest?.('.screenplay-page')
-    setCursorAuraVisible(overPage)
-    if (!overPage) return
-    updateCursorAuraPosition(e.clientX, e.clientY)
-  })
-}
 
 // Modal close handlers
 document.getElementById('close-tutorial')?.addEventListener('click', () => {
@@ -2086,7 +2045,8 @@ function init() {
 init()
 
 // PWA Service Worker Registration
-if ('serviceWorker' in navigator) {
+// Important: do NOT register the SW in dev, it can cache index.html and break Vite HMR.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then((reg) => {

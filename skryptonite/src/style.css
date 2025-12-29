@@ -412,29 +412,7 @@ body {
   overflow: hidden;
   /* Hide overflow */
   caret-color: var(--accent-color);
-}
-
-/* Cursor aura (helps visibility on dark paper mode) */
-.cursor-aura {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  border: 1px solid var(--accent-color);
-  box-shadow:
-    0 0 10px var(--accent-color),
-    0 0 24px var(--accent-color);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 1500;
-  opacity: 0;
-  transition: opacity 0.08s linear;
-}
-
-.cursor-aura.visible {
-  opacity: 0.85;
+  cursor: url('/cursor-neon.svg') 2 2, auto;
 }
 
 /* Page content wrapper */
@@ -1001,10 +979,6 @@ body {
     font-family: var(--font-mono);
     font-size: 12pt;
     color: black;
-  }
-
-  .cursor-aura {
-    display: none !important;
   }
 }
 
