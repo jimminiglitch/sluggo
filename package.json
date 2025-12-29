@@ -1,0 +1,10 @@
+{
+  "name": "skryptonite-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix ./skryptonite run dev",
+    "build": "npm --prefix ./skryptonite run build",
+    "preview": "npm --prefix ./skryptonite run preview",
+    "install:app": "npm --prefix ./skryptonite install"
+  }
+}
