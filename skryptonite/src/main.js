@@ -1556,10 +1556,9 @@ async function openScript() {
 
 function getTemplateScriptData() {
   const template = `<div class="screenplay-page"><div class="el-fade-in">FADE IN:</div>
-<div class="el-scene-heading">INT. LOCATION - DAY</div>
-<div class="el-action">Action goes here.</div>
-<div class="el-character">CHARACTER</div>
-<div class="el-dialogue">Dialogue goes here.</div></div>`
+<div class="el-action"><br></div>
+<div class="el-scene-heading">INT. YOUR WORLD - DAY</div>
+<div class="el-action"><br></div></div>`
 
   return {
     metadata: {

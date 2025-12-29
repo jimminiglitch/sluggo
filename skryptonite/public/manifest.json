@@ -1,21 +1,30 @@
 {
   "name": "Skryptonite",
   "short_name": "Skryptonite",
+  "id": "./",
+  "scope": "./",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#1a1a1a",
-  "description": "Industry-Standard Screenplay Editor",
+  "description": "Fast, no-bloat screenwriting with true screenplay formatting.",
+  "categories": [
+    "productivity",
+    "writing",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "icon.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
