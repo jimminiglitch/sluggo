@@ -25,7 +25,7 @@
           <button data-action="save-as"><span>Save As...</span><kbd>Ctrl+Shift+S</kbd></button>
           <div class="menu-divider"></div>
           <button data-action="export-pdf"><span>Print / Save as PDF...</span><kbd>Ctrl+P</kbd></button>
-          <button data-action="export-fdx"><span>Export Final Draft (FDX) (experimental)</span></button>
+          <button data-action="export-fdx"><span>Export Final Draft (FDX)...</span></button>
           <button data-action="export-txt"><span>Export Plain Text (.txt)</span></button>
         </div>
       </div>
@@ -207,7 +207,7 @@
   <div id="settings-modal" class="modal hidden">
     <div class="modal-content">
       <h2>Settings</h2>
-      <p>Printing and formatting options.</p>
+      <p>Printing and layout options.</p>
 
       <div class="settings-row">
         <label>
@@ -219,11 +219,63 @@
       <div class="settings-row">
         <label>
           <input type="checkbox" id="setting-page-numbers" />
-          Show page numbers (starts on page 2)
+          Show page numbers
         </label>
       </div>
 
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-page-numbers-start-2" />
+          Start page numbers on page 2
+        </label>
+      </div>
+
+      <div class="settings-row settings-row-stack">
+        <label for="setting-print-header-style">Print header</label>
+        <select id="setting-print-header-style" class="form-select">
+          <option value="none">None</option>
+          <option value="title">Title on left</option>
+        </select>
+      </div>
+
+      <div class="settings-row settings-row-stack">
+        <label for="setting-margin-preset">Margins</label>
+        <select id="setting-margin-preset" class="form-select">
+          <option value="standard">Standard (1.5in / 1.0in)</option>
+          <option value="narrow">Narrow (1.25in / 1.0in)</option>
+          <option value="wide">Wide (1.75in / 1.0in)</option>
+        </select>
+      </div>
+
       <button class="btn-primary" id="close-settings">Close</button>
+    </div>
+  </div>
+
+  <!-- FIND / REPLACE MODAL -->
+  <div id="find-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="find-modal-title">Find</h2>
+      <p>Search within your screenplay.</p>
+
+      <div class="form-row">
+        <label for="find-query">Find</label>
+        <input id="find-query" class="form-input" type="text" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div class="form-row replace-row" id="replace-row">
+        <label for="find-replace">Replace</label>
+        <input id="find-replace" class="form-input" type="text" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div class="find-actions">
+        <button class="btn-secondary" type="button" id="find-next">Find Next</button>
+        <button class="btn-secondary" type="button" id="replace-one">Replace</button>
+        <button class="btn-secondary" type="button" id="replace-all">Replace All</button>
+      </div>
+
+      <div class="find-status" id="find-status" aria-live="polite"></div>
+
+      <button class="btn-primary" id="close-find">Close</button>
     </div>
   </div>
 

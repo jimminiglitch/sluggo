@@ -591,6 +591,79 @@ body {
   align-items: center;
 }
 
+.settings-row.settings-row-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-row.settings-row-stack label {
+  display: block;
+  color: var(--text-secondary);
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  outline: none;
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: rgba(99, 102, 241, 0.65);
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.form-row label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.btn-secondary {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-secondary:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.find-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0 10px;
+}
+
+.find-status {
+  min-height: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 6px 0 12px;
+}
+
 /* ============================================
    AUTOCOMPLETE
    ============================================ */
@@ -873,7 +946,7 @@ body {
 
   /* Page numbers (standard: starts on page 2, flush right, ~0.5in from top) */
   body.print-page-numbers .screenplay-page:not(.title-page-view)::after {
-    content: attr(data-page-number) '.';
+    content: attr(data-page-number);
     position: absolute;
     top: 0.5in;
     right: var(--right-margin);
@@ -882,8 +955,15 @@ body {
     color: black;
   }
 
-  body.print-page-numbers .screenplay-page:not(.title-page-view)[data-page-number="1"]::after {
-    content: '';
+  /* Optional header title (left) */
+  body.print-header-title .screenplay-page:not(.title-page-view)::before {
+    content: attr(data-header-left);
+    position: absolute;
+    top: 0.5in;
+    left: var(--left-margin);
+    font-family: var(--font-mono);
+    font-size: 12pt;
+    color: black;
   }
 }
 

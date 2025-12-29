@@ -28,15 +28,34 @@ const aboutModal = document.getElementById('about-modal')
 const licenseModal = document.getElementById('license-modal')
 const docsModal = document.getElementById('docs-modal')
 const settingsModal = document.getElementById('settings-modal')
+const findModal = document.getElementById('find-modal')
+
+const findEls = {
+  title: document.getElementById('find-modal-title'),
+  query: document.getElementById('find-query'),
+  replace: document.getElementById('find-replace'),
+  replaceRow: document.getElementById('replace-row'),
+  next: document.getElementById('find-next'),
+  replaceOne: document.getElementById('replace-one'),
+  replaceAll: document.getElementById('replace-all'),
+  close: document.getElementById('close-find'),
+  status: document.getElementById('find-status')
+}
 
 const settingsEls = {
   includeTitlePage: document.getElementById('setting-include-title-page'),
-  pageNumbers: document.getElementById('setting-page-numbers')
+  pageNumbers: document.getElementById('setting-page-numbers'),
+  pageNumbersStart2: document.getElementById('setting-page-numbers-start-2'),
+  printHeaderStyle: document.getElementById('setting-print-header-style'),
+  marginPreset: document.getElementById('setting-margin-preset')
 }
 
 const DEFAULT_SETTINGS = {
   includeTitlePageInPrint: true,
-  showPageNumbersInPrint: true
+  showPageNumbersInPrint: true,
+  pageNumbersStartOnPage2: true,
+  printHeaderStyle: 'none',
+  marginPreset: 'standard'
 }
 
 let settings = { ...DEFAULT_SETTINGS }
@@ -63,23 +82,42 @@ function saveSettings() {
 function applySettingsToUI() {
   settingsEls.includeTitlePage && (settingsEls.includeTitlePage.checked = !!settings.includeTitlePageInPrint)
   settingsEls.pageNumbers && (settingsEls.pageNumbers.checked = !!settings.showPageNumbersInPrint)
+  settingsEls.pageNumbersStart2 && (settingsEls.pageNumbersStart2.checked = !!settings.pageNumbersStartOnPage2)
+  settingsEls.printHeaderStyle && (settingsEls.printHeaderStyle.value = settings.printHeaderStyle || 'none')
+  settingsEls.marginPreset && (settingsEls.marginPreset.value = settings.marginPreset || 'standard')
 
   document.body.classList.toggle('print-include-title-page', !!settings.includeTitlePageInPrint)
   document.body.classList.toggle('print-page-numbers', !!settings.showPageNumbersInPrint)
+  document.body.classList.toggle('print-header-title', (settings.printHeaderStyle || 'none') === 'title')
+
+  applyMarginPreset(settings.marginPreset || 'standard')
+  updatePageNumberAttributes()
+}
+
+function applyMarginPreset(preset) {
+  const presets = {
+    standard: { left: '1.5in', right: '1in', top: '1in', bottom: '1in' },
+    narrow: { left: '1.25in', right: '1in', top: '1in', bottom: '1in' },
+    wide: { left: '1.75in', right: '1in', top: '1in', bottom: '1in' }
+  }
+  const chosen = presets[preset] || presets.standard
+  document.documentElement.style.setProperty('--left-margin', chosen.left)
+  document.documentElement.style.setProperty('--right-margin', chosen.right)
+  document.documentElement.style.setProperty('--top-margin', chosen.top)
+  document.documentElement.style.setProperty('--bottom-margin', chosen.bottom)
 }
 
 function openSettings() {
-  settingsModal?.classList.remove('hidden')
+  openModal(settingsModal)
 }
 
 function closeSettings() {
-  settingsModal?.classList.add('hidden')
-  editor.focus()
+  closeModal(settingsModal)
 }
 
 function printScript() {
   applySettingsToUI()
-  document.querySelectorAll('.modal:not(.hidden)').forEach(m => m.classList.add('hidden'))
+  document.querySelectorAll('.modal:not(.hidden)').forEach(m => closeModal(m))
 
   const titleEl = document.getElementById('title-page-view')
   const hadActive = titleEl?.classList.contains('active')
@@ -93,6 +131,119 @@ function printScript() {
     titleEl.classList.remove('active')
   }
 }
+
+// ============================================
+// ACCESSIBILITY: MODALS (focus trap + ESC)
+// ============================================
+let activeModal = null
+let modalReturnFocusEl = null
+
+function getFocusableElements(container) {
+  if (!container) return []
+  const selectors = [
+    'button',
+    '[href]',
+    'input',
+    'select',
+    'textarea',
+    '[tabindex]:not([tabindex="-1"])'
+  ]
+  return Array.from(container.querySelectorAll(selectors.join(',')))
+    .filter(el => !el.hasAttribute('disabled'))
+    .filter(el => {
+      const style = window.getComputedStyle(el)
+      return style.display !== 'none' && style.visibility !== 'hidden'
+    })
+}
+
+function closeAllModals() {
+  document.querySelectorAll('.modal:not(.hidden)').forEach(m => {
+    m.classList.add('hidden')
+    m.setAttribute('aria-hidden', 'true')
+  })
+  activeModal = null
+}
+
+function ensureDialogAria(modal) {
+  if (!modal) return
+  if (!modal.hasAttribute('role')) modal.setAttribute('role', 'dialog')
+  if (!modal.hasAttribute('aria-modal')) modal.setAttribute('aria-modal', 'true')
+  if (!modal.hasAttribute('aria-hidden')) modal.setAttribute('aria-hidden', modal.classList.contains('hidden') ? 'true' : 'false')
+  const heading = modal.querySelector('.modal-content h2')
+  if (heading && !heading.id) {
+    heading.id = `${modal.id || 'modal'}-title`
+  }
+  if (heading && !modal.hasAttribute('aria-labelledby')) {
+    modal.setAttribute('aria-labelledby', heading.id)
+  }
+}
+
+function openModal(modal, { focusEl = null } = {}) {
+  if (!modal) return
+  document.querySelectorAll('.modal:not(.hidden)').forEach(m => {
+    if (m !== modal) m.classList.add('hidden')
+  })
+
+  ensureDialogAria(modal)
+
+  modalReturnFocusEl = document.activeElement
+  activeModal = modal
+
+  modal.classList.remove('hidden')
+  modal.setAttribute('aria-hidden', 'false')
+
+  const content = modal.querySelector('.modal-content')
+  const focusables = getFocusableElements(content)
+  const target = focusEl || focusables[0] || content
+  if (target && typeof target.focus === 'function') target.focus()
+}
+
+function closeModal(modal) {
+  if (!modal) return
+  modal.classList.add('hidden')
+  modal.setAttribute('aria-hidden', 'true')
+
+  if (activeModal === modal) activeModal = null
+
+  const candidate = modalReturnFocusEl
+  modalReturnFocusEl = null
+  if (candidate && document.contains(candidate) && typeof candidate.focus === 'function') {
+    candidate.focus()
+  } else {
+    editor?.focus()
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!activeModal || activeModal.classList.contains('hidden')) return
+
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    closeModal(activeModal)
+    return
+  }
+
+  if (e.key !== 'Tab') return
+
+  const content = activeModal.querySelector('.modal-content')
+  const focusables = getFocusableElements(content)
+  if (focusables.length === 0) return
+
+  const first = focusables[0]
+  const last = focusables[focusables.length - 1]
+  const current = document.activeElement
+
+  if (e.shiftKey && current === first) {
+    e.preventDefault()
+    last.focus()
+    return
+  }
+
+  if (!e.shiftKey && current === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}, true)
 
 // ============================================
 // STATE
@@ -324,10 +475,9 @@ const menuActions = {
   'copy': () => document.execCommand('copy'),
   'paste': () => document.execCommand('paste'),
   'find': () => {
-    const term = prompt('Find text:')
-    if (term) window.find(term)
+    openFindModal(false)
   },
-  'replace': () => alert('Find & Replace: Coming soon'),
+  'replace': () => openFindModal(true),
   'select-all': () => {
     const range = document.createRange()
     range.selectNodeContents(editor)
@@ -360,9 +510,9 @@ const menuActions = {
   // Help
   'show-shortcuts': () => shortcutsModal.classList.remove('hidden'),
   'show-tutorial': () => tutorialModal.classList.remove('hidden'),
-  'docs': () => docsModal?.classList.remove('hidden'),
-  'license': () => licenseModal?.classList.remove('hidden'),
-  'about': () => aboutModal.classList.remove('hidden'),
+  'docs': () => openModal(docsModal),
+  'license': () => openModal(licenseModal),
+  'about': () => openModal(aboutModal),
 
   // Settings
   'settings': () => openSettings()
@@ -374,13 +524,43 @@ let isMenuOpen = false
 // Attach menu handlers
 document.querySelectorAll('.menu-item').forEach(item => {
   const trigger = item.querySelector('.menu-trigger')
-  const action = trigger.textContent.toLowerCase() // 'file', 'edit' etc
+  const dropdown = item.querySelector('.menu-dropdown')
+
+  // Basic ARIA for menus
+  if (trigger && dropdown) {
+    if (!dropdown.id) dropdown.id = `menu-${trigger.textContent.toLowerCase()}-${Math.random().toString(16).slice(2)}`
+    trigger.setAttribute('aria-haspopup', 'menu')
+    trigger.setAttribute('aria-expanded', 'false')
+    trigger.setAttribute('aria-controls', dropdown.id)
+    dropdown.setAttribute('role', 'menu')
+    dropdown.querySelectorAll('button').forEach(btn => btn.setAttribute('role', 'menuitem'))
+
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        trigger.click()
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        trigger.click()
+        const first = dropdown.querySelector('button')
+        first?.focus()
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        isMenuOpen = false
+        closeAllMenus()
+        trigger.focus()
+      }
+    })
+  }
 
   trigger.addEventListener('click', (e) => {
     e.stopPropagation()
     closeAllMenus()
     isMenuOpen = true
     item.querySelector('.menu-dropdown').style.display = 'block'
+    trigger.setAttribute('aria-expanded', 'true')
   })
 
   item.addEventListener('mouseover', () => {
@@ -403,6 +583,7 @@ document.querySelectorAll('[data-action]').forEach(btn => {
 
 function closeAllMenus() {
   document.querySelectorAll('.menu-dropdown').forEach(el => el.style.display = '')
+  document.querySelectorAll('.menu-trigger[aria-expanded="true"]').forEach(t => t.setAttribute('aria-expanded', 'false'))
 }
 
 // Close menus on outside click
@@ -419,33 +600,32 @@ editorWrapper.addEventListener('scroll', () => {
 
 // Modal close handlers
 document.getElementById('close-tutorial')?.addEventListener('click', () => {
-  tutorialModal.classList.add('hidden')
+  closeModal(tutorialModal)
   localStorage.setItem('skryptonite_tutorial', 'done')
-  editor.focus()
 })
 
 document.getElementById('close-shortcuts')?.addEventListener('click', () => {
-  shortcutsModal.classList.add('hidden')
-  editor.focus()
+  closeModal(shortcutsModal)
 })
 
 document.getElementById('close-about')?.addEventListener('click', () => {
-  aboutModal.classList.add('hidden')
-  editor.focus()
+  closeModal(aboutModal)
 })
 
 document.getElementById('close-license')?.addEventListener('click', () => {
-  licenseModal?.classList.add('hidden')
-  editor.focus()
+  closeModal(licenseModal)
 })
 
 document.getElementById('close-docs')?.addEventListener('click', () => {
-  docsModal?.classList.add('hidden')
-  editor.focus()
+  closeModal(docsModal)
 })
 
 document.getElementById('close-settings')?.addEventListener('click', () => {
   closeSettings()
+})
+
+findEls.close?.addEventListener('click', () => {
+  closeModal(findModal)
 })
 
 settingsEls.includeTitlePage?.addEventListener('change', () => {
@@ -460,11 +640,29 @@ settingsEls.pageNumbers?.addEventListener('change', () => {
   saveSettings()
 })
 
+settingsEls.pageNumbersStart2?.addEventListener('change', () => {
+  settings.pageNumbersStartOnPage2 = !!settingsEls.pageNumbersStart2.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
+settingsEls.printHeaderStyle?.addEventListener('change', () => {
+  settings.printHeaderStyle = settingsEls.printHeaderStyle.value || 'none'
+  applySettingsToUI()
+  saveSettings()
+})
+
+settingsEls.marginPreset?.addEventListener('change', () => {
+  settings.marginPreset = settingsEls.marginPreset.value || 'standard'
+  applySettingsToUI()
+  saveSettings()
+})
+
 // Close modals on backdrop click
 document.querySelectorAll('.modal').forEach(modal => {
   modal.addEventListener('click', (e) => {
     if (e.target === modal) {
-      modal.classList.add('hidden')
+      closeModal(modal)
     }
   })
 })
@@ -475,7 +673,7 @@ document.querySelectorAll('.modal').forEach(modal => {
 // ============================================
 document.addEventListener('keydown', (e) => {
   // Don't intercept if typing in inputs
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return
 
   const ctrl = e.ctrlKey || e.metaKey
   const shift = e.shiftKey
@@ -515,9 +713,233 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault()
         menuActions['toggle-sidebar']()
         break
+      case 'f':
+        e.preventDefault()
+        openFindModal(false)
+        break
+      case 'h':
+        e.preventDefault()
+        openFindModal(true)
+        break
+      case 'p':
+        e.preventDefault()
+        menuActions['export-pdf']()
+        break
+      case ',':
+        e.preventDefault()
+        openSettings()
+        break
       case 'd':
         e.preventDefault()
         menuActions['toggle-dark-mode']()
+
+// ============================================
+// FIND / REPLACE
+// ============================================
+let findState = {
+  isReplace: false,
+  lastQuery: '',
+  lastIndex: -1
+}
+
+function setFindStatus(message) {
+  if (findEls.status) findEls.status.textContent = message || ''
+}
+
+function getScriptTextNodes() {
+  const rootPages = editor.querySelectorAll('.screenplay-page:not(.title-page-view)')
+  const nodes = []
+  rootPages.forEach(page => {
+    const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
+    let node = walker.nextNode()
+    while (node) {
+      nodes.push(node)
+      node = walker.nextNode()
+    }
+  })
+  return nodes
+}
+
+function buildSearchIndex() {
+  const nodes = getScriptTextNodes()
+  const starts = new Map()
+  let text = ''
+  nodes.forEach(n => {
+    starts.set(n, text.length)
+    text += n.nodeValue || ''
+  })
+  return { nodes, starts, text }
+}
+
+function getSelectionGlobalOffset(search) {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return 0
+  const range = sel.getRangeAt(0)
+  const node = range.startContainer
+  const offset = range.startOffset
+  if (search.starts.has(node)) return search.starts.get(node) + offset
+  // If selection isn't in a text node we indexed, start at 0.
+  return 0
+}
+
+function setSelectionFromGlobalRange(search, start, end) {
+  const sel = window.getSelection()
+  if (!sel) return
+
+  function locate(pos) {
+    for (let i = search.nodes.length - 1; i >= 0; i--) {
+      const n = search.nodes[i]
+      const s = search.starts.get(n)
+      const len = (n.nodeValue || '').length
+      if (pos >= s && pos <= s + len) {
+        return { node: n, offset: Math.max(0, Math.min(len, pos - s)) }
+      }
+    }
+    return null
+  }
+
+  const a = locate(start)
+  const b = locate(end)
+  if (!a || !b) return
+
+  const range = document.createRange()
+  range.setStart(a.node, a.offset)
+  range.setEnd(b.node, b.offset)
+  sel.removeAllRanges()
+  sel.addRange(range)
+  editor.focus()
+}
+
+function findNext(query, { wrap = true } = {}) {
+  const q = String(query || '')
+  if (!q) {
+    setFindStatus('Enter text to find.')
+    return false
+  }
+
+  const search = buildSearchIndex()
+  if (!search.text) {
+    setFindStatus('Nothing to search.')
+    return false
+  }
+
+  const from = Math.max(0, getSelectionGlobalOffset(search))
+  let idx = search.text.indexOf(q, from)
+  if (idx === -1 && wrap) {
+    idx = search.text.indexOf(q, 0)
+  }
+  if (idx === -1) {
+    setFindStatus('No matches.')
+    return false
+  }
+
+  setSelectionFromGlobalRange(search, idx, idx + q.length)
+  setFindStatus(`Match found.`)
+  findState.lastQuery = q
+  findState.lastIndex = idx
+  return true
+}
+
+function selectionMatchesQuery(query) {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return false
+  return (sel.toString() || '') === query
+}
+
+function replaceCurrent(query, replacement) {
+  const q = String(query || '')
+  const r = String(replacement ?? '')
+  if (!q) {
+    setFindStatus('Enter text to find.')
+    return false
+  }
+
+  if (!selectionMatchesQuery(q)) {
+    // If current selection isn't a match, find next first.
+    const found = findNext(q)
+    if (!found) return false
+  }
+
+  document.execCommand('insertText', false, r)
+  markDirty()
+  checkPageOverflow()
+  updateUI()
+  setFindStatus('Replaced.')
+  return true
+}
+
+function replaceAll(query, replacement) {
+  const q = String(query || '')
+  const r = String(replacement ?? '')
+  if (!q) {
+    setFindStatus('Enter text to find.')
+    return 0
+  }
+
+  let count = 0
+  const lines = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view) > div'))
+  lines.forEach(line => {
+    const text = line.textContent || ''
+    if (!text.includes(q)) return
+    const parts = text.split(q)
+    if (parts.length <= 1) return
+    count += parts.length - 1
+    const nextText = parts.join(r)
+    if (nextText.trim() === '') {
+      line.innerHTML = '<br>'
+    } else {
+      line.textContent = nextText
+    }
+  })
+
+  if (count > 0) {
+    markDirty()
+    checkPageOverflow()
+    updateUI()
+    setFindStatus(`Replaced ${count} occurrence${count === 1 ? '' : 's'}.`)
+  } else {
+    setFindStatus('No matches.')
+  }
+  return count
+}
+
+function openFindModal(isReplace) {
+  findState.isReplace = !!isReplace
+  if (findEls.title) findEls.title.textContent = isReplace ? 'Find & Replace' : 'Find'
+  if (findEls.replaceRow) findEls.replaceRow.style.display = isReplace ? '' : 'none'
+  if (findEls.replaceOne) findEls.replaceOne.style.display = isReplace ? '' : 'none'
+  if (findEls.replaceAll) findEls.replaceAll.style.display = isReplace ? '' : 'none'
+  setFindStatus('')
+  openModal(findModal, { focusEl: findEls.query })
+}
+
+findEls.next?.addEventListener('click', () => {
+  findNext(findEls.query?.value || '')
+})
+
+findEls.replaceOne?.addEventListener('click', () => {
+  replaceCurrent(findEls.query?.value || '', findEls.replace?.value || '')
+  findNext(findEls.query?.value || '')
+})
+
+findEls.replaceAll?.addEventListener('click', () => {
+  replaceAll(findEls.query?.value || '', findEls.replace?.value || '')
+})
+
+findEls.query?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    findNext(findEls.query.value || '')
+  }
+})
+
+findEls.replace?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    replaceCurrent(findEls.query?.value || '', findEls.replace?.value || '')
+    findNext(findEls.query?.value || '')
+  }
+})
         break
       case ',':
         e.preventDefault()
@@ -1229,22 +1651,81 @@ function exportPlainText() {
 
 function updatePageNumberAttributes() {
   const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
+  const title = (document.getElementById('input-title')?.value || '').trim()
   pages.forEach((page, idx) => {
-    page.dataset.pageNumber = String(idx + 1)
+    const number = idx + 1
+    const showOnFirst = !settings.pageNumbersStartOnPage2
+    const text = (showOnFirst || number > 1) ? `${number}.` : ''
+    page.dataset.pageNumber = text
+    page.dataset.headerLeft = title
   })
 }
 
 function exportFDX() {
-  const content = editor.innerText
-  const fdx = `<?xml version="1.0" encoding="UTF-8"?>
-<FinalDraft DocumentType="Script" Template="No" Version="1">
-  <Content>
-    <Paragraph Type="Action">
-      <Text>${content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Text>
-    </Paragraph>
-  </Content>
-</FinalDraft>`
-  downloadFile(fdx, 'screenplay.fdx', 'application/xml')
+  const tab = getActiveTab()
+  const base = tab?.fileName?.replace(/\.[^/.]+$/i, '') || 'screenplay'
+
+  const escapeXml = (s) => String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+
+  const typeForClass = (cls) => {
+    if (cls.includes('el-scene-heading')) return 'Scene Heading'
+    if (cls.includes('el-action')) return 'Action'
+    if (cls.includes('el-character')) return 'Character'
+    if (cls.includes('el-parenthetical')) return 'Parenthetical'
+    if (cls.includes('el-dialogue')) return 'Dialogue'
+    if (cls.includes('el-transition')) return 'Transition'
+    if (cls.includes('el-fade-in')) return 'Transition'
+    return 'Action'
+  }
+
+  const paragraphs = []
+  const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
+  pages.forEach(page => {
+    Array.from(page.children).forEach(line => {
+      const text = (line.textContent || '').replace(/\s+$/g, '')
+      if (!text.trim()) {
+        // Preserve intentional blank lines as Action paragraphs (FDX importers vary; this is a safe default)
+        paragraphs.push({ type: 'Action', text: '' })
+        return
+      }
+      paragraphs.push({ type: typeForClass(line.className || ''), text })
+    })
+    // Separator between pages (best-effort)
+    paragraphs.push({ type: 'Action', text: '' })
+  })
+
+  const title = (document.getElementById('input-title')?.value || '').trim()
+  const author = (document.getElementById('input-author')?.value || '').trim()
+  const contact = (document.getElementById('input-contact')?.value || '').trim()
+  const date = (document.getElementById('input-date')?.value || '').trim()
+  const rights = (document.getElementById('input-rights')?.value || '').trim()
+
+  const titlePageParas = []
+  if (title) titlePageParas.push({ type: 'Title', text: title })
+  titlePageParas.push({ type: 'Credit', text: 'Written by' })
+  if (author) titlePageParas.push({ type: 'Author', text: author })
+  if (contact) {
+    contact.split(/\r?\n/).forEach(line => titlePageParas.push({ type: 'Contact', text: line }))
+  }
+  if (date) titlePageParas.push({ type: 'Contact', text: date })
+  if (rights) titlePageParas.push({ type: 'Contact', text: rights })
+
+  const titlePageXml = titlePageParas.length
+    ? `  <TitlePage>\n    <Content>\n${titlePageParas.map(p => `      <Paragraph Type="${escapeXml(p.type)}"><Text>${escapeXml(p.text)}</Text></Paragraph>`).join('\n')}\n    </Content>\n  </TitlePage>\n`
+    : ''
+
+  const contentXml = paragraphs
+    .map(p => `    <Paragraph Type="${escapeXml(p.type)}"><Text>${escapeXml(p.text)}</Text></Paragraph>`)
+    .join('\n')
+
+  const fdx = `<?xml version="1.0" encoding="UTF-8"?>\n<FinalDraft DocumentType="Script" Template="No" Version="1">\n${titlePageXml}  <Content>\n${contentXml}\n  </Content>\n</FinalDraft>\n`
+
+  downloadFile(fdx, `${base}.fdx`, 'application/xml')
 }
 
 function importPlainText(text) {
@@ -1567,7 +2048,35 @@ init()
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
-      .then(reg => console.log('SW registered'))
+      .then((reg) => {
+        const promptUpdateIfWaiting = () => {
+          if (!reg.waiting) return
+          // Minimal UX: confirm prompt
+          if (confirm('A new version of Skryptonite is available. Reload to update?')) {
+            reg.waiting.postMessage({ type: 'SKRYPTONITE_SW_SKIP_WAITING' })
+          }
+        }
+
+        // If there's already a waiting SW, prompt now.
+        promptUpdateIfWaiting()
+
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing
+          if (!newWorker) return
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              promptUpdateIfWaiting()
+            }
+          })
+        })
+
+        let refreshing = false
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (refreshing) return
+          refreshing = true
+          window.location.reload()
+        })
+      })
       .catch(err => console.log('SW failed', err))
   })
 }
