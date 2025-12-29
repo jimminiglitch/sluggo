@@ -591,10 +591,21 @@ document.querySelectorAll('.menu-item').forEach(item => {
 })
 
 document.querySelectorAll('[data-action]').forEach(btn => {
+  // For quick format buttons, prevent the button from stealing focus so the
+  // current selection/line stays stable.
+  btn.addEventListener('mousedown', (e) => {
+    const action = btn.dataset.action
+    if (typeof action === 'string' && action.startsWith('el-')) e.preventDefault()
+  })
+
   btn.addEventListener('click', () => {
     const action = btn.dataset.action
     if (menuActions[action]) {
       menuActions[action]()
+      if (typeof action === 'string' && action.startsWith('el-')) {
+        // Keep writing flow: return focus to the editor after applying format.
+        editor?.focus?.()
+      }
       closeAllMenus()
     }
   })
