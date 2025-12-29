@@ -291,15 +291,18 @@ body {
   font-size: 14px;
   font-weight: 600;
   padding: 14px 16px;
+  min-height: 56px;
   border-bottom: 1px solid var(--divider);
   color: var(--text-primary);
 }
 
 .logo-mark {
-  width: 22px;
-  height: 22px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
-  filter: drop-shadow(0 0 10px var(--accent-color));
+  filter:
+    drop-shadow(0 0 10px var(--accent-color))
+    drop-shadow(0 0 18px rgba(99, 102, 241, 0.35));
 }
 
 .sidebar-section {
