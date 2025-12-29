@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 /* ============================================
    SKRYPTONITE - Industry-Standard Screenplay CSS
@@ -23,7 +23,7 @@
   --paper-text: #000000;
 
   /* Typography */
-  --font-mono: 'Courier Prime', 'Courier New', Courier, monospace;
+  --font-mono: 'Courier New', Courier, monospace;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Screenplay Layout */
@@ -478,6 +478,9 @@ body {
   /* Fixed height for pagination */
   background-color: var(--paper-bg);
   color: var(--paper-text);
+  font-family: var(--font-mono);
+  font-size: 12pt;
+  line-height: 1.5;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   position: relative;
   padding: var(--top-margin) var(--right-margin) var(--bottom-margin) var(--left-margin);
@@ -974,6 +977,7 @@ body {
   }
 
   .menu-bar,
+  .quick-bar,
   .tab-bar,
   .sidebar,
   .modal,
