@@ -25,6 +25,8 @@ document.body.appendChild(autocompleteBox)
 
 const shortcutsModal = document.getElementById('shortcuts-modal')
 const aboutModal = document.getElementById('about-modal')
+const licenseModal = document.getElementById('license-modal')
+const docsModal = document.getElementById('docs-modal')
 const settingsModal = document.getElementById('settings-modal')
 
 const settingsEls = {
@@ -358,6 +360,8 @@ const menuActions = {
   // Help
   'show-shortcuts': () => shortcutsModal.classList.remove('hidden'),
   'show-tutorial': () => tutorialModal.classList.remove('hidden'),
+  'docs': () => docsModal?.classList.remove('hidden'),
+  'license': () => licenseModal?.classList.remove('hidden'),
   'about': () => aboutModal.classList.remove('hidden'),
 
   // Settings
@@ -427,6 +431,16 @@ document.getElementById('close-shortcuts')?.addEventListener('click', () => {
 
 document.getElementById('close-about')?.addEventListener('click', () => {
   aboutModal.classList.add('hidden')
+  editor.focus()
+})
+
+document.getElementById('close-license')?.addEventListener('click', () => {
+  licenseModal?.classList.add('hidden')
+  editor.focus()
+})
+
+document.getElementById('close-docs')?.addEventListener('click', () => {
+  docsModal?.classList.add('hidden')
   editor.focus()
 })
 

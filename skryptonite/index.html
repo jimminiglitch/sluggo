@@ -77,6 +77,9 @@
           <button data-action="show-shortcuts"><span>Keyboard Shortcuts</span><kbd>Ctrl+/</kbd></button>
           <button data-action="show-tutorial"><span>Show Tutorial</span></button>
           <div class="menu-divider"></div>
+          <button data-action="docs"><span>Documentation</span></button>
+          <button data-action="license"><span>License</span></button>
+          <div class="menu-divider"></div>
           <button data-action="about"><span>About Skryptonite</span></button>
         </div>
       </div>
@@ -233,6 +236,82 @@
       <p>A free, professional screenwriting tool designed for pure creativity.</p>
       <p class="about-version">Version 1.0</p>
       <button class="btn-primary" id="close-about">Close</button>
+    </div>
+  </div>
+
+  <!-- LICENSE MODAL -->
+  <div id="license-modal" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <h2>License</h2>
+      <p>Skryptonite is released under the MIT License.</p>
+      <pre class="license-text">MIT License
+
+Copyright (c) 2025 Ben Filler
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</pre>
+      <button class="btn-primary" id="close-license">Close</button>
+    </div>
+  </div>
+
+  <!-- DOCUMENTATION MODAL -->
+  <div id="docs-modal" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <h2>Documentation</h2>
+      <p>Quick reference for writing, saving, and exporting.</p>
+
+      <div class="docs-grid">
+        <div class="docs-section">
+          <h3>Essentials</h3>
+          <div class="docs-row"><kbd>Ctrl+N</kbd><span>New script (opens a new tab)</span></div>
+          <div class="docs-row"><kbd>Ctrl+O</kbd><span>Open… (opens in a new tab)</span></div>
+          <div class="docs-row"><kbd>Ctrl+S</kbd><span>Save</span></div>
+          <div class="docs-row"><kbd>Ctrl+Shift+S</kbd><span>Save As…</span></div>
+          <div class="docs-row"><kbd>Ctrl+,</kbd><span>Settings</span></div>
+        </div>
+
+        <div class="docs-section">
+          <h3>Formatting</h3>
+          <div class="docs-row"><kbd>Tab</kbd><span>Cycle element type</span></div>
+          <div class="docs-row"><kbd>Ctrl+1</kbd><span>Scene Heading</span></div>
+          <div class="docs-row"><kbd>Ctrl+2</kbd><span>Action</span></div>
+          <div class="docs-row"><kbd>Ctrl+3</kbd><span>Character</span></div>
+          <div class="docs-row"><kbd>Ctrl+4</kbd><span>Parenthetical</span></div>
+          <div class="docs-row"><kbd>Ctrl+5</kbd><span>Dialogue</span></div>
+          <div class="docs-row"><kbd>Ctrl+6</kbd><span>Transition</span></div>
+        </div>
+
+        <div class="docs-section">
+          <h3>View</h3>
+          <div class="docs-row"><kbd>Ctrl+B</kbd><span>Toggle sidebar</span></div>
+          <div class="docs-row"><kbd>Ctrl+D</kbd><span>Dark paper mode</span></div>
+          <div class="docs-row"><kbd>Ctrl+/</kbd><span>Keyboard shortcuts</span></div>
+        </div>
+
+        <div class="docs-section">
+          <h3>Print / PDF</h3>
+          <div class="docs-note">Export PDF uses your browser’s print dialog.</div>
+          <div class="docs-note">For best results: set Paper Size = Letter, disable Headers/Footers, keep scaling at 100%.</div>
+          <div class="docs-note">Settings lets you include/exclude the title page and toggle page numbers.</div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="close-docs">Close</button>
     </div>
   </div>
 
