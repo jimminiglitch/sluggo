@@ -622,6 +622,11 @@ document.addEventListener('click', () => {
   closeAllMenus()
 })
 
+// Keep quick format buttons in sync with caret movement.
+document.addEventListener('selectionchange', () => {
+  scheduleQuickBarUpdate()
+})
+
 darkModeToggleBtn?.addEventListener('click', () => {
   toggleDarkPaperMode()
 })
@@ -1063,6 +1068,7 @@ function setZoom(level) {
 function toggleTitlePage() {
   const el = document.getElementById('title-page-view')
   el.classList.toggle('active')
+  scheduleQuickBarUpdate()
 }
 
 // ============================================
@@ -1072,6 +1078,57 @@ function setElement(element) {
   currentElement = element
   const displayName = element.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   currentElementDisplay.textContent = displayName
+  scheduleQuickBarUpdate()
+}
+
+// ============================================
+// QUICK TOOLBAR (active format highlight)
+// ============================================
+let quickBarUpdatePending = false
+
+function scheduleQuickBarUpdate() {
+  if (quickBarUpdatePending) return
+  quickBarUpdatePending = true
+  requestAnimationFrame(() => {
+    quickBarUpdatePending = false
+    updateQuickBarActiveState()
+  })
+}
+
+function getActiveElementFromCurrentLine() {
+  const line = getCurrentLine()
+  if (!line) return null
+
+  // Find the first matching known element class.
+  for (const [element, cls] of Object.entries(ELEMENT_CLASSES)) {
+    if (element === 'fade-in') continue
+    if (line.classList?.contains?.(cls)) return element
+  }
+
+  return null
+}
+
+function updateQuickBarActiveState() {
+  const quickBar = document.querySelector('.quick-bar')
+  if (!quickBar) return
+
+  const titlePageView = document.getElementById('title-page-view')
+  const isTitlePageActive = Boolean(titlePageView?.classList?.contains('active'))
+
+  // Reset
+  quickBar.querySelectorAll('.quick-btn.is-active').forEach(btn => btn.classList.remove('is-active'))
+
+  // Title page button state
+  const titleBtn = quickBar.querySelector('[data-action="title-page"]')
+  if (titleBtn) titleBtn.classList.toggle('is-active', isTitlePageActive)
+
+  // If title page is active, don't highlight a screenplay line format.
+  if (isTitlePageActive) return
+
+  const activeElement = getActiveElementFromCurrentLine() || currentElement
+  const action = `el-${activeElement}`
+  const activeBtn = quickBar.querySelector(`[data-action="${CSS.escape(action)}"]`)
+  if (activeBtn) activeBtn.classList.add('is-active')
 }
 
 function getElementClass(element) {
