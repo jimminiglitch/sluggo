@@ -56,6 +56,7 @@ body {
   height: 100vh;
   overflow: hidden;
   font-size: 13px;
+  cursor: url('/cursor-neon.svg') 2 2, auto;
 }
 
 #app {
@@ -297,8 +298,8 @@ body {
 }
 
 .logo-mark {
-  width: 34px;
-  height: 34px;
+    width: 162px;
+    height: 136px;
   flex: 0 0 auto;
   filter:
     drop-shadow(0 0 10px var(--accent-color))
