@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/icon.png" />
+  <link rel="apple-touch-icon" href="/icon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>Skryptonite | Industry-Standard Screenwriting</title>
+</head>
+
+<body>
+  <div id="app">
+    <!-- MENU BAR -->
+    <nav class="menu-bar">
+      <div class="menu-item">
+        <button class="menu-trigger">File</button>
+        <div class="menu-dropdown">
+          <button data-action="new"><span>New Script</span><kbd>Ctrl+N</kbd></button>
+          <button data-action="open"><span>Open...</span><kbd>Ctrl+O</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="save"><span>Save</span><kbd>Ctrl+S</kbd></button>
+          <button data-action="save-as"><span>Save As...</span><kbd>Ctrl+Shift+S</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="export-pdf"><span>Print / Save as PDF...</span><kbd>Ctrl+P</kbd></button>
+          <button data-action="export-fdx"><span>Export Final Draft (FDX) (experimental)</span></button>
+          <button data-action="export-txt"><span>Export Plain Text (.txt)</span></button>
+        </div>
+      </div>
+      <div class="menu-item">
+        <button class="menu-trigger">Edit</button>
+        <div class="menu-dropdown">
+          <button data-action="undo"><span>Undo</span><kbd>Ctrl+Z</kbd></button>
+          <button data-action="redo"><span>Redo</span><kbd>Ctrl+Y</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="cut"><span>Cut</span><kbd>Ctrl+X</kbd></button>
+          <button data-action="copy"><span>Copy</span><kbd>Ctrl+C</kbd></button>
+          <button data-action="paste"><span>Paste</span><kbd>Ctrl+V</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="find"><span>Find...</span><kbd>Ctrl+F</kbd></button>
+          <button data-action="replace"><span>Find & Replace...</span><kbd>Ctrl+H</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="select-all"><span>Select All</span><kbd>Ctrl+A</kbd></button>
+        </div>
+      </div>
+      <div class="menu-item">
+        <button class="menu-trigger">View</button>
+        <div class="menu-dropdown">
+          <button data-action="toggle-sidebar"><span>Toggle Sidebar</span><kbd>Ctrl+B</kbd></button>
+          <button data-action="toggle-dark-mode"><span>Dark Mode (Paper)</span><kbd>Ctrl+D</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="zoom-in"><span>Zoom In</span><kbd>Ctrl++</kbd></button>
+          <button data-action="zoom-out"><span>Zoom Out</span><kbd>Ctrl+-</kbd></button>
+          <button data-action="zoom-reset"><span>Reset Zoom</span><kbd>Ctrl+0</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="title-page"><span>Title Page</span></button>
+          <div class="menu-divider"></div>
+          <button data-action="settings"><span>Settings...</span><kbd>Ctrl+,</kbd></button>
+        </div>
+      </div>
+      <div class="menu-item">
+        <button class="menu-trigger">Format</button>
+        <div class="menu-dropdown">
+          <button data-action="el-scene-heading"><span>Scene Heading</span><kbd>Ctrl+1</kbd></button>
+          <button data-action="el-action"><span>Action</span><kbd>Ctrl+2</kbd></button>
+          <button data-action="el-character"><span>Character</span><kbd>Ctrl+3</kbd></button>
+          <button data-action="el-parenthetical"><span>Parenthetical</span><kbd>Ctrl+4</kbd></button>
+          <button data-action="el-dialogue"><span>Dialogue</span><kbd>Ctrl+5</kbd></button>
+          <button data-action="el-transition"><span>Transition</span><kbd>Ctrl+6</kbd></button>
+        </div>
+      </div>
+      <div class="menu-item">
+        <button class="menu-trigger">Help</button>
+        <div class="menu-dropdown">
+          <button data-action="show-shortcuts"><span>Keyboard Shortcuts</span><kbd>Ctrl+/</kbd></button>
+          <button data-action="show-tutorial"><span>Show Tutorial</span></button>
+          <div class="menu-divider"></div>
+          <button data-action="about"><span>About Skryptonite</span></button>
+        </div>
+      </div>
+
+      <!-- Right side status -->
+      <div class="menu-status">
+        <span id="save-status" class="save-status">Saved</span>
+        <span id="current-element" class="element-indicator">Action</span>
+      </div>
+    </nav>
+
+    <!-- TABS BAR (multiple scripts) -->
+    <div class="tab-bar" id="tab-bar" role="tablist" aria-label="Open scripts"></div>
+
+    <div class="app-body">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="sidebar">
+        <div class="logo">Skryptonite</div>
+
+        <div class="sidebar-section">
+          <h3>Scenes</h3>
+          <div class="scene-list" id="scene-list">
+            <!-- Scenes populated by JS -->
+          </div>
+        </div>
+
+        <div class="sidebar-section sidebar-section-bottom">
+          <div class="stats">
+            <div><span id="word-count">0</span> words</div>
+            <div><span id="page-count">0</span> pages</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- MAIN EDITOR AREA -->
+      <main class="editor-container-wrapper">
+        <!-- EDITOR CONTAINER -->
+        <div class="editor-container">
+          <!-- Script Editor Container (Holds Pages) -->
+          <div id="editor">
+            <!-- Title Page View (Special Page) -->
+              <div id="title-page-view" class="screenplay-page title-page-view">
+                <div class="title-page-center">
+                  <input type="text" id="input-title" class="title-page-title" placeholder="UNTITLED SCREENPLAY" />
+                  <div class="title-page-by">Written by</div>
+                  <input type="text" id="input-author" class="title-page-author" placeholder="Your Name" />
+                </div>
+
+                <div class="title-page-footer">
+                  <div class="title-page-footer-left">
+                    <textarea id="input-contact" class="title-page-contact" placeholder="Contact Info"></textarea>
+                  </div>
+                  <div class="title-page-footer-right">
+                    <input type="text" id="input-date" class="title-page-date" placeholder="Draft Date" />
+                    <input type="text" id="input-rights" class="title-page-rights" placeholder="© 2025 Your Name / WGA# (optional)" />
+                  </div>
+                </div>
+              </div>
+
+            <!-- Pages inserted by JS -->
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- TUTORIAL MODAL -->
+  <div id="tutorial-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Welcome to Skryptonite</h2>
+      <p>Industry-standard screenplay formatting.</p>
+      <ul>
+        <li><strong>Tab</strong> — Cycle element type on current line</li>
+        <li><strong>Enter</strong> — New line with smart element switching</li>
+        <li><strong>Ctrl+1-6</strong> — Quick format current line</li>
+        <li><strong>Ctrl+S</strong> — Save to browser storage</li>
+        <li><strong>Ctrl+D</strong> — Toggle dark paper mode</li>
+      </ul>
+      <button class="btn-primary" id="close-tutorial">Start Writing</button>
+    </div>
+  </div>
+
+  <!-- KEYBOARD SHORTCUTS MODAL -->
+  <div id="shortcuts-modal" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <h2>Keyboard Shortcuts</h2>
+      <div class="shortcuts-grid">
+        <div class="shortcut-section">
+          <h3>File</h3>
+          <div class="shortcut-row"><kbd>Ctrl+N</kbd><span>New Script</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+O</kbd><span>Open</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+S</kbd><span>Save</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+P</kbd><span>Print/Export PDF</span></div>
+        </div>
+        <div class="shortcut-section">
+          <h3>Edit</h3>
+          <div class="shortcut-row"><kbd>Ctrl+Z</kbd><span>Undo</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+Y</kbd><span>Redo</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+F</kbd><span>Find</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+H</kbd><span>Replace</span></div>
+        </div>
+        <div class="shortcut-section">
+          <h3>Format</h3>
+          <div class="shortcut-row"><kbd>Tab</kbd><span>Cycle Element</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+1</kbd><span>Scene Heading</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+2</kbd><span>Action</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+3</kbd><span>Character</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+4</kbd><span>Parenthetical</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+5</kbd><span>Dialogue</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+6</kbd><span>Transition</span></div>
+        </div>
+        <div class="shortcut-section">
+          <h3>View</h3>
+          <div class="shortcut-row"><kbd>Ctrl+B</kbd><span>Toggle Sidebar</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+D</kbd><span>Dark Paper Mode</span></div>
+          <div class="shortcut-row"><kbd>Ctrl++</kbd><span>Zoom In</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+-</kbd><span>Zoom Out</span></div>
+        </div>
+      </div>
+      <button class="btn-primary" id="close-shortcuts">Close</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Settings</h2>
+      <p>Printing and formatting options.</p>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-include-title-page" />
+          Include title page when printing
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-page-numbers" />
+          Show page numbers (starts on page 2)
+        </label>
+      </div>
+
+      <button class="btn-primary" id="close-settings">Close</button>
+    </div>
+  </div>
+
+  <!-- ABOUT MODAL -->
+  <div id="about-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Skryptonite</h2>
+      <p class="about-subtitle">Industry-Standard Screenwriting</p>
+      <p class="about-created">Created by <strong>Ben Filler</strong>.</p>
+      <p>A free, professional screenwriting tool designed for pure creativity.</p>
+      <p class="about-version">Version 1.0</p>
+      <button class="btn-primary" id="close-about">Close</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
