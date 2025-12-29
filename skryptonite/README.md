@@ -7,6 +7,8 @@ Skryptonite is a fast, offline-friendly screenplay editor built with vanilla JS 
 ## Features
 
 - **Screenplay formatting**: Scene headings, action, character, parenthetical, dialogue, transitions.
+- **Standard screenplay typography**: `Courier New` at `12pt` for screenplay pages and print/PDF.
+- **Quick format toolbar**: One-click format buttons + Title Page toggle under the tabs.
 - **Pagination**: Pages are laid out as 8.5"×11" and overflow is moved to the next page.
 - **Scene sidebar**: Scene headings are detected and listed for quick navigation.
 - **Tabs**: Work on multiple scripts at once (New/Open create new tabs).
@@ -20,6 +22,8 @@ Skryptonite is a fast, offline-friendly screenplay editor built with vanilla JS 
 ## Quick start
 
 Prereqs: **Node.js 18+** recommended.
+
+If you're in the repo root, you can run `npm run dev` there too (it forwards into this app folder).
 
 ```bash
 npm install
@@ -38,6 +42,15 @@ npm run preview
 The production build goes to `dist/`.
 
 ## Using the editor
+
+### Quick toolbar
+
+Under the tabs there’s a quick toolbar for:
+
+- **Title Page** toggle
+- **Scene / Action / Character / Parenthetical / Dialogue / Transition** format buttons
+
+The active format button lights up based on your current line.
 
 ### Menu / shortcuts
 
