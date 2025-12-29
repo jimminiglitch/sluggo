@@ -15,6 +15,25 @@ const sidebar = document.getElementById('sidebar')
 const titlePageView = document.getElementById('title-page-view')
 const tabBar = document.getElementById('tab-bar')
 
+const darkModeToggleBtn = document.getElementById('darkmode-toggle')
+
+function isDarkPaperEnabled() {
+  return document.body.classList.contains('dark-paper')
+}
+
+function updateDarkModeToggleUI() {
+  if (!darkModeToggleBtn) return
+  const enabled = isDarkPaperEnabled()
+  darkModeToggleBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false')
+  darkModeToggleBtn.textContent = enabled ? 'Dark' : 'Dark'
+  darkModeToggleBtn.title = enabled ? 'Dark paper mode: On (Ctrl+D)' : 'Dark paper mode: Off (Ctrl+D)'
+}
+
+function toggleDarkPaperMode() {
+  document.body.classList.toggle('dark-paper')
+  updateDarkModeToggleUI()
+}
+
 // Modals
 const tutorialModal = document.getElementById('tutorial-modal')
 
@@ -493,7 +512,7 @@ const menuActions = {
 
   // View
   'toggle-sidebar': () => sidebar.classList.toggle('hidden'),
-  'toggle-dark-mode': () => document.body.classList.toggle('dark-paper'),
+  'toggle-dark-mode': () => toggleDarkPaperMode(),
   'zoom-in': () => setZoom(zoomLevel + 0.1),
   'zoom-out': () => setZoom(zoomLevel - 0.1),
   'zoom-reset': () => setZoom(1),
@@ -590,6 +609,10 @@ function closeAllMenus() {
 document.addEventListener('click', () => {
   isMenuOpen = false
   closeAllMenus()
+})
+
+darkModeToggleBtn?.addEventListener('click', () => {
+  toggleDarkPaperMode()
 })
 
 // Scroll handler for sidebar highlighting
@@ -1967,6 +1990,8 @@ function hideAutocomplete() {
 function init() {
   loadSettings()
   applySettingsToUI()
+
+  updateDarkModeToggleUI()
 
   // Load saved workspace (tabs) or fall back to the legacy single-script key.
   const savedWorkspace = localStorage.getItem('skryptonite_workspace')
