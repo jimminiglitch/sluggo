@@ -1067,7 +1067,11 @@ function setZoom(level) {
 // ============================================
 function toggleTitlePage() {
   const el = document.getElementById('title-page-view')
-  el.classList.toggle('active')
+  const isActive = el.classList.toggle('active')
+  // Hide/show other screenplay pages when title page is focused
+  document.querySelectorAll('.screenplay-page:not(.title-page-view)').forEach(page => {
+    page.style.display = isActive ? 'none' : ''
+  })
   scheduleQuickBarUpdate()
 }
 
@@ -1888,6 +1892,15 @@ function updateUI() {
 sceneList.addEventListener('click', (e) => {
   const item = e.target.closest('.scene-item')
   if (!item || !item.dataset.sceneId) return
+
+  // If title page is active, toggle it off and show script
+  const titleEl = document.getElementById('title-page-view')
+  if (titleEl && titleEl.classList.contains('active')) {
+    titleEl.classList.remove('active')
+    document.querySelectorAll('.screenplay-page:not(.title-page-view)').forEach(page => {
+      page.style.display = ''
+    })
+  }
 
   const sceneEl = document.getElementById(item.dataset.sceneId)
   if (sceneEl) {
