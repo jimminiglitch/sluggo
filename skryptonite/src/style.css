@@ -261,7 +261,7 @@ body {
   width: 1px;
   height: 18px;
   background: var(--divider);
-  margin: 0 2px;
+  margin: 0 16px 0 8px;
 }
 
 /* ============================================
