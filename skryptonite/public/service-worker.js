@@ -1,5 +1,5 @@
-const CACHE_NAME = 'skryptonite-v4'
-const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/icon.png']
+const CACHE_NAME = 'skryptonite-v5'
+const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/icon.png', '/skryptonite.ico']
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
