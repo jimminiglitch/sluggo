@@ -62,7 +62,7 @@ body {
   height: 100vh;
   overflow: hidden;
   font-size: 13px;
-  cursor: url('/cursor-neon.svg') 2 2, auto;
+  cursor: url('./cursor-neon.svg') 2 2, auto;
 }
 
 #app {
@@ -88,14 +88,12 @@ body {
   align-items: center;
   padding: 0 8px;
   gap: 2px;
-  user-select: none;
   -webkit-user-select: none;
-  -webkit-app-region: drag;
+  user-select: none;
 }
 
 .menu-item {
   position: relative;
-  -webkit-app-region: no-drag;
 }
 
 .menu-trigger {
@@ -173,7 +171,6 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  -webkit-app-region: no-drag;
 }
 
 .save-status {
@@ -228,8 +225,8 @@ body {
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  user-select: none;
   -webkit-user-select: none;
+  user-select: none;
 }
 
 .quick-btn {
@@ -291,8 +288,8 @@ body {
   background: transparent;
   color: var(--text-secondary);
   cursor: var(--cursor-pointer);
-  user-select: none;
   -webkit-user-select: none;
+  user-select: none;
   min-width: 140px;
   max-width: 240px;
 }
@@ -490,7 +487,7 @@ body {
   overflow: hidden;
   /* Hide overflow */
   caret-color: var(--accent-color);
-  cursor: url('/cursor-neon.svg') 2 2, auto;
+  cursor: url('./cursor-neon.svg') 2 2, auto;
 }
 
 /* Page content wrapper */
@@ -825,8 +822,8 @@ body {
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   align-items: center;
   justify-content: center;
 }

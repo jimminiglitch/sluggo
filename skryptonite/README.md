@@ -77,6 +77,7 @@ Open via **View → Settings…**.
 Skryptonite uses the browser print dialog for PDF output.
 
 For best results in Chrome/Edge:
+
 - Set paper size to **Letter**
 - Disable browser **Headers and footers**
 - Avoid “Fit to page” scaling (use default / 100%)
@@ -88,6 +89,7 @@ Note: Different browsers can render print layout slightly differently.
 ### `.skrypt`
 
 A `.skrypt` file is **JSON** with:
+
 - `metadata`: title page fields
 - `content`: serialized HTML for screenplay pages
 
@@ -123,8 +125,8 @@ MIT — see `LICENSE`.
 
 Skryptonite is free and open source. If you’d like to support development, you can sponsor the project on GitHub:
 
-- https://github.com/sponsors/jimminiglitch
+- [https://github.com/sponsors/jimminiglitch](https://github.com/sponsors/jimminiglitch)
 
 Or tip via Venmo:
 
-- https://venmo.com/u/lilbbboy
+- [https://venmo.com/u/lilbbboy](https://venmo.com/u/lilbbboy)
