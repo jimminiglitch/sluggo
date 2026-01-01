@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skryptonite-v3'
+const CACHE_NAME = 'skryptonite-v4'
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/icon.png']
 
 self.addEventListener('install', (event) => {

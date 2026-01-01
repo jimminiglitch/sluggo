@@ -1271,7 +1271,20 @@ function cycleElementOnCurrentLine() {
 // ============================================
 // EDITOR EVENT HANDLERS
 // ============================================
+function isFormFieldTarget(target) {
+  if (!target || !target.tagName) return false
+  const tag = target.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+}
+
+function isInsideTitlePage(target) {
+  return !!(titlePageView && target && titlePageView.contains(target))
+}
+
 editor.addEventListener('keydown', (e) => {
+  // Title page uses native inputs/textareas; don't hijack keys like Tab/Enter.
+  if (isFormFieldTarget(e.target) || isInsideTitlePage(e.target)) return
+
   if (autocompleteBox.style.display === 'block') {
     if (handleAutocompleteKeydown(e)) return
   }

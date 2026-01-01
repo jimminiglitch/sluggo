@@ -15,14 +15,14 @@
   ],
   "icons": [
     {
-      "src": "icon.png",
-      "sizes": "192x192",
+      "src": "/icon.png",
+      "sizes": "336x320",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon.png",
-      "sizes": "512x512",
+      "src": "/icon.png",
+      "sizes": "336x320",
       "type": "image/png",
       "purpose": "any maskable"
     }
