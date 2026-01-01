@@ -420,7 +420,9 @@ function createTab({ fileName, fileHandle = null, data, isDirty = false }) {
 function createNewTabFromTemplate() {
   persistActiveTabState()
   const fileName = `Untitled ${untitledCounter++}.skrypt`
-  const data = getTemplateScriptData()
+  const titleBase = fileName.replace(/\.skrypt$/i, '')
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const data = getTemplateScriptData({ title: titleBase.toUpperCase(), date: todayIso })
   const id = createTab({ fileName, data, isDirty: false })
   activeTabId = id
   autocompleteData = getActiveTab().autocompleteData
@@ -1639,19 +1641,27 @@ async function openScript() {
   }
 }
 
-function getTemplateScriptData() {
-  const template = `<div class="screenplay-page"><div class="el-fade-in">FADE IN:</div>
+function getTemplateScriptData({ title = '', author = '', contact = '', date = '', rights = '' } = {}) {
+  const template = `<div class="screenplay-page">
+<div class="el-fade-in">FADE IN:</div>
 <div class="el-action"><br></div>
-<div class="el-scene-heading">INT. YOUR WORLD - DAY</div>
-<div class="el-action"><br></div></div>`
+<div class="el-scene-heading">INT. SOMEWHERE INTERESTING - DAY</div>
+<div class="el-action">A single, vivid action line. Keep it lean. Keep it visual.</div>
+<div class="el-action"><br></div>
+<div class="el-character">YOU</div>
+<div class="el-parenthetical">(testing the format)</div>
+<div class="el-dialogue">Type like a screenwriter. Hit Tab to cycle elements while writing.</div>
+<div class="el-action"><br></div>
+<div class="el-transition">CUT TO:</div>
+</div>`
 
   return {
     metadata: {
-      title: '',
-      author: '',
-      contact: '',
-      date: '',
-      rights: ''
+      title,
+      author,
+      contact,
+      date,
+      rights
     },
     content: template
   }
