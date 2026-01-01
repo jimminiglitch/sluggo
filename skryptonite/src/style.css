@@ -657,6 +657,27 @@ body {
   opacity: 0.7;
 }
 
+.about-divider {
+  margin: 1em 0;
+  border: none;
+  border-top: 1px solid var(--divider);
+}
+
+.about-list {
+  margin: 12px 0;
+  padding-left: 18px;
+  color: var(--text-primary);
+}
+
+.about-support {
+  margin-bottom: 1em;
+}
+
+.about-tip {
+  font-size: 0.95em;
+  color: var(--text-secondary);
+}
+
 .about-created {
   margin-top: 20px;
 }
