@@ -351,9 +351,25 @@ body {
 }
 
 .sidebar.hidden {
-  width: 0;
-  opacity: 0;
+  width: 56px;
+  opacity: 1;
   overflow: hidden;
+}
+
+.sidebar.hidden .sidebar-section {
+  display: none;
+}
+
+.sidebar.hidden .logo {
+  border-bottom: none;
+  min-height: 56px;
+  padding: 10px;
+}
+
+.sidebar.hidden .logo-mark {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
 }
 
 .logo {
@@ -457,6 +473,53 @@ body {
   justify-content: center;
   padding: 24px;
   overflow-y: auto;
+}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+@media (max-width: 720px) {
+  .menu-bar,
+  .tab-bar,
+  .quick-bar {
+    overflow-x: auto;
+  }
+
+  .menu-status {
+    flex: 0 0 auto;
+  }
+
+  .app-body {
+    position: relative;
+  }
+
+  .editor-container {
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  #editor {
+    margin: 0;
+  }
+
+  .sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 220px;
+    max-width: 80vw;
+    z-index: 20;
+  }
+
+  .sidebar.hidden {
+    display: none;
+  }
+
+  .logo-mark {
+    width: 140px;
+    height: auto;
+  }
 }
 
 #editor {

@@ -15,6 +15,49 @@ const sidebar = document.getElementById('sidebar')
 const titlePageView = document.getElementById('title-page-view')
 const tabBar = document.getElementById('tab-bar')
 
+const SIDEBAR_HIDDEN_KEY = 'skryptonite_sidebar_hidden'
+
+function isSidebarHidden() {
+  // Note: On desktop this means "collapsed to rail"; on mobile it means "hidden".
+  return !!sidebar?.classList.contains('hidden')
+}
+
+function setSidebarHidden(hidden, { persist = true } = {}) {
+  if (!sidebar) return
+  sidebar.classList.toggle('hidden', !!hidden)
+  if (persist) {
+    try {
+      localStorage.setItem(SIDEBAR_HIDDEN_KEY, hidden ? '1' : '0')
+    } catch (_) {
+      // Ignore
+    }
+  }
+}
+
+function loadSidebarHiddenPreference() {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_HIDDEN_KEY)
+    if (raw === null) return null
+    return raw === '1'
+  } catch (_) {
+    return null
+  }
+}
+
+function applyInitialSidebarState() {
+  const pref = loadSidebarHiddenPreference()
+  if (pref === null) {
+    const isNarrow = window.matchMedia?.('(max-width: 720px)')?.matches
+    setSidebarHidden(!!isNarrow, { persist: false })
+    return
+  }
+  setSidebarHidden(pref, { persist: false })
+}
+
+function toggleSidebar() {
+  setSidebarHidden(!isSidebarHidden())
+}
+
 const darkModeToggleBtn = document.getElementById('darkmode-toggle')
 
 function isDarkPaperEnabled() {
@@ -581,7 +624,7 @@ const menuActions = {
   'underline': () => document.execCommand('underline'),
 
   // View
-  'toggle-sidebar': () => sidebar.classList.toggle('hidden'),
+  'toggle-sidebar': () => toggleSidebar(),
   'toggle-dark-mode': () => toggleDarkPaperMode(),
   'zoom-in': () => setZoom(zoomLevel + 0.1),
   'zoom-out': () => setZoom(zoomLevel - 0.1),
@@ -2167,6 +2210,8 @@ function hideAutocomplete() {
 function init() {
   loadSettings()
   applySettingsToUI()
+
+  applyInitialSidebarState()
 
   updateDarkModeToggleUI()
 
