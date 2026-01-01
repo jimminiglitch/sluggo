@@ -475,6 +475,74 @@ const ELEMENT_CLASSES = {
 }
 
 // ============================================
+// PWA INSTALL / UNINSTALL (best-effort)
+// ============================================
+let deferredInstallPrompt = null
+
+function updateInstallMenuVisibility() {
+  const installBtn = document.querySelector('[data-action="install-app"]')
+  const uninstallBtn = document.querySelector('[data-action="uninstall-app"]')
+  if (!installBtn || !uninstallBtn) return
+
+  const standalone = isRunningStandalone()
+  installBtn.hidden = standalone
+  uninstallBtn.hidden = !standalone
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Store the event so we can trigger it from a user gesture (menu click).
+  e.preventDefault()
+  deferredInstallPrompt = e
+  updateInstallMenuVisibility()
+})
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null
+  updateInstallMenuVisibility()
+})
+
+function isRunningStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+}
+
+// Initialize after we know isRunningStandalone() exists.
+updateInstallMenuVisibility()
+
+async function promptInstall() {
+  if (!deferredInstallPrompt) {
+    // No prompt available: either already installed, unsupported, or not yet eligible.
+    // Keep it simple and point the user to the browser's install UI.
+    openModal(aboutModal)
+    alert('To install: use your browser menu (Install app / Add to Home Screen). If you do not see it, your browser may not support installation for this site yet.')
+    return
+  }
+
+  try {
+    await deferredInstallPrompt.prompt()
+    // Chrome returns a promise via userChoice; other browsers may not.
+    await deferredInstallPrompt.userChoice?.catch(() => {})
+  } finally {
+    // Prompt can only be used once.
+    deferredInstallPrompt = null
+  }
+}
+
+function showUninstallHelp() {
+  if (!isRunningStandalone()) {
+    openModal(aboutModal)
+    alert('This app is not currently installed as an app. To uninstall later, you would remove it from your browser-installed apps or your device home screen.')
+    return
+  }
+
+  alert(
+    'Uninstall steps (varies by device):\n\n' +
+    '• Desktop (Chrome/Edge): open the installed app and use the menu to “Uninstall”, or remove it from your OS app list.\n' +
+    '• Android: long-press the app icon → Uninstall.\n' +
+    '• iOS: long-press the app icon → Remove App.'
+  )
+}
+
+// ============================================
 // MENU ACTIONS
 // ============================================
 const menuActions = {
@@ -534,6 +602,12 @@ const menuActions = {
   'docs': () => openModal(docsModal),
   'license': () => openModal(licenseModal),
   'about': () => openModal(aboutModal),
+  'install-app': () => {
+    promptInstall()
+  },
+  'uninstall-app': () => {
+    showUninstallHelp()
+  },
 
   // Settings
   'settings': () => openSettings()
@@ -2176,7 +2250,8 @@ init()
 // Important: do NOT register the SW in dev, it can cache index.html and break Vite HMR.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    const swUrl = `${import.meta.env.BASE_URL}service-worker.js`
+    navigator.serviceWorker.register(swUrl)
       .then((reg) => {
         const promptUpdateIfWaiting = () => {
           if (!reg.waiting) return

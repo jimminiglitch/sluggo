@@ -1,5 +1,6 @@
-const CACHE_NAME = 'skryptonite-v5'
-const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/icon.png', '/skryptonite.ico']
+const CACHE_NAME = 'skryptonite-v6'
+// Use relative URLs so this works when hosted under a sub-path (e.g. GitHub Pages /skryptonite/).
+const CORE_ASSETS = ['./', './index.html', './manifest.json', './icon.png', './skryptonite.ico']
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -42,7 +43,7 @@ self.addEventListener('fetch', (event) => {
                     return response
                 } catch (_) {
                     const cached = await caches.match(request)
-                    return cached || caches.match('/index.html')
+                    return cached || caches.match('./index.html')
                 }
             })()
         )

@@ -15,13 +15,13 @@
   ],
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "./icon.png",
       "sizes": "336x320",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon.png",
+      "src": "./icon.png",
       "sizes": "336x320",
       "type": "image/png",
       "purpose": "any maskable"
