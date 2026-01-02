@@ -208,17 +208,18 @@ function printScript() {
   applySettingsToUI()
   document.querySelectorAll('.modal:not(.hidden)').forEach(m => closeModal(m))
 
-  const titleEl = document.getElementById('title-page-view')
-  const hadActive = titleEl?.classList.contains('active')
-  if (settings.includeTitlePageInPrint && titleEl && !hadActive) {
-    titleEl.classList.add('active')
+  // Printing should be optional: print what the user has toggled visible.
+  // Title page visibility in print is controlled via body.print-include-title-page.
+  const prevPrintIncludeTitle = document.body.classList.contains('print-include-title-page')
+  document.body.classList.toggle('print-include-title-page', isTitlePageVisible())
+
+  const restore = () => {
+    document.body.classList.toggle('print-include-title-page', prevPrintIncludeTitle)
+    window.removeEventListener('afterprint', restore)
   }
+  window.addEventListener('afterprint', restore)
 
   window.print()
-
-  if (settings.includeTitlePageInPrint && titleEl && !hadActive) {
-    titleEl.classList.remove('active')
-  }
 }
 
 // ============================================
@@ -1991,9 +1992,37 @@ function downloadFile(content, fileName, contentType) {
 }
 
 function getPlainTextExport() {
+  const read = (id) => (document.getElementById(id)?.value || '').trimEnd()
+
+  const title = read('input-title')
+  const author = read('input-author')
+  const contact = read('input-contact')
+  const date = read('input-date')
+  const rights = read('input-rights')
+
+  const titleLines = []
+  if (title) titleLines.push(title)
+  if (author || title) {
+    titleLines.push('', 'Written by')
+    if (author) titleLines.push(author)
+  }
+  if (contact) {
+    titleLines.push('', ...contact.split(/\r?\n/))
+  }
+  if (date) titleLines.push('', date)
+  if (rights) titleLines.push(rights)
+
   const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
+  const pageText = pages.map(page => {
+    const lines = Array.from(page.children).map(line => (line.textContent || '').replace(/\s+$/g, ''))
+    // Preserve blank lines and trailing line breaks within a page.
+    return lines.join('\n').trimEnd()
+  })
+
   // Separate pages with a form-feed marker for tools that understand it.
-  return pages.map(p => p.innerText.trimEnd()).join('\n\n\f\n\n') + '\n'
+  const bodyText = pageText.join('\n\n\f\n\n')
+  const out = [titleLines.join('\n').trimEnd(), bodyText.trimEnd()].filter(Boolean).join('\n\n\f\n\n')
+  return out.trimEnd() + '\n'
 }
 
 function exportPlainText() {
