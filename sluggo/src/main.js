@@ -1676,10 +1676,64 @@ function checkPageOverflow() {
         const lastChild = page.lastElementChild
         if (!lastChild) break // Should not happen
 
-        if (nextPage.firstChild) {
-          nextPage.insertBefore(lastChild, nextPage.firstChild)
-        } else {
-          nextPage.appendChild(lastChild)
+        // Screenplay formatting rule (common): if dialogue spills to next page,
+        // a parenthetical should not be left dangling at the bottom. Move the
+        // parenthetical (and character name if immediately above) with the dialogue.
+        let moveGroup = [lastChild]
+        let continuationCharacterText = null
+        if (lastChild.classList?.contains('el-dialogue')) {
+          const maybeParen = lastChild.previousElementSibling
+          if (maybeParen?.classList?.contains('el-parenthetical')) {
+            moveGroup = [lastChild, maybeParen]
+            const maybeCharacter = maybeParen.previousElementSibling
+            if (maybeCharacter?.classList?.contains('el-character')) {
+              moveGroup.push(maybeCharacter)
+            }
+          }
+
+          // If we are moving dialogue but NOT moving the character name line,
+          // the dialogue is continuing from the previous page. Repeat the
+          // character name on the next page with (CONT'D).
+          const isMovingCharacter = moveGroup.some(n => n?.classList?.contains?.('el-character'))
+          if (!isMovingCharacter) {
+            let cursor = lastChild.previousElementSibling
+            while (cursor) {
+              if (cursor.classList?.contains('el-character')) {
+                continuationCharacterText = (cursor.textContent || '').trim()
+                break
+              }
+              cursor = cursor.previousElementSibling
+            }
+          }
+        }
+
+        if (continuationCharacterText) {
+          const stripContd = (s) => String(s || '').replace(/\s*\(CONT'D\)\s*/gi, ' ').replace(/\s+/g, ' ').trim()
+          const base = stripContd(continuationCharacterText)
+          if (base) {
+            const contd = `${base} (CONT'D)`
+            const first = nextPage.firstElementChild
+            const firstIsSameCharacter = first?.classList?.contains('el-character') && stripContd(first.textContent) === base
+            if (!firstIsSameCharacter) {
+              const charLine = document.createElement('div')
+              charLine.className = 'el-character'
+              charLine.textContent = contd
+              if (nextPage.firstChild) nextPage.insertBefore(charLine, nextPage.firstChild)
+              else nextPage.appendChild(charLine)
+            }
+          }
+        }
+
+        // Insert at top of next page preserving intended order.
+        // We insert in reverse (dialogue, then parenthetical, then character) so
+        // the final order is character → parenthetical → dialogue.
+        for (const node of moveGroup) {
+          if (!node || !node.parentElement) continue
+          if (nextPage.firstChild) {
+            nextPage.insertBefore(node, nextPage.firstChild)
+          } else {
+            nextPage.appendChild(node)
+          }
         }
       }
     }
