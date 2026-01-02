@@ -1,7 +1,7 @@
 import './style.css'
 
 // ============================================
-// SKRYPTONITE - Industry-Standard Screenplay Editor
+// SLUGGO - Industry-Standard Screenplay Editor
 // ============================================
 
 // DOM Elements
@@ -499,7 +499,7 @@ function updateSaveStatusUI() {
   if (!tab) return
   saveStatusDisplay.textContent = tab.isDirty ? 'Unsaved' : 'Saved'
   saveStatusDisplay.classList.toggle('saving', tab.isDirty)
-  document.title = `${tab.isDirty ? '*' : ''}${tab.fileName} - Skryptonite`
+  document.title = `${tab.isDirty ? '*' : ''}${tab.fileName} - SlugGo`
 }
 
 let autocompleteData = getDefaultAutocompleteData()
@@ -1685,7 +1685,7 @@ async function saveScript(asNew = false) {
       const handle = await window.showSaveFilePicker({
         suggestedName: tab.fileName,
         types: [{
-          description: 'Skryptonite Script',
+          description: 'SlugGo Script',
           accept: { 'application/json': ['.skrypt'] }
         }]
       })
@@ -2301,8 +2301,8 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
         const promptUpdateIfWaiting = () => {
           if (!reg.waiting) return
           // Minimal UX: confirm prompt
-          if (confirm('A new version of Skryptonite is available. Reload to update?')) {
-            reg.waiting.postMessage({ type: 'SKRYPTONITE_SW_SKIP_WAITING' })
+          if (confirm('A new version of SlugGo is available. Reload to update?')) {
+            reg.waiting.postMessage({ type: 'SLUGGO_SW_SKIP_WAITING' })
           }
         }
 

@@ -1,8 +1,8 @@
-# Skryptonite
+# SlugGo
 
 Industry-standard(ish) screenwriting in the browser.
 
-Skryptonite is a fast, offline-friendly screenplay editor built with vanilla JS + Vite. It’s designed to feel like a real desktop tool: menu bar, keyboard shortcuts, pagination, scene sidebar, autosave, and multiple scripts open at once via in-app tabs.
+SlugGo is a fast, offline-friendly screenplay editor built with vanilla JS + Vite. It’s designed to feel like a real desktop tool: menu bar, keyboard shortcuts, pagination, scene sidebar, autosave, and multiple scripts open at once via in-app tabs.
 
 ## Features
 
@@ -74,7 +74,7 @@ Open via **View → Settings…**.
 
 ## Printing / PDF tips
 
-Skryptonite uses the browser print dialog for PDF output.
+SlugGo uses the browser print dialog for PDF output.
 
 For best results in Chrome/Edge:
 
@@ -93,7 +93,7 @@ A `.skrypt` file is **JSON** with:
 - `metadata`: title page fields
 - `content`: serialized HTML for screenplay pages
 
-This makes the editor simple and fast, but also means `.skrypt` is currently **Skryptonite-specific**.
+This makes the editor simple and fast, but also means `.skrypt` is currently **SlugGo-specific**.
 
 ### Text export
 
@@ -123,7 +123,7 @@ MIT — see `LICENSE`.
 
 ## Support
 
-Skryptonite is free and open source. If you’d like to support development, you can sponsor the project on GitHub:
+SlugGo is free and open source. If you’d like to support development, you can sponsor the project on GitHub:
 
 - [https://github.com/sponsors/jimminiglitch](https://github.com/sponsors/jimminiglitch)
 

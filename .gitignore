@@ -1,4 +1,4 @@
-# Root-level ignores (repo contains the Vite app in ./skryptonite)
+# Root-level ignores (repo contains the Vite app in ./sluggo)
 
 # OS / editor
 .DS_Store
@@ -13,10 +13,22 @@ yarn-debug.log*
 pnpm-debug.log*
 
 # Build output + deps (nested app)
+sluggo/node_modules/
+sluggo/dist/
+sluggo/dist-ssr/
+sluggo/*.local
+
+# Legacy build output + deps (from old ./skryptonite folder)
 skryptonite/node_modules/
 skryptonite/dist/
 skryptonite/dist-ssr/
 skryptonite/*.local
+
+# Electron leftovers (PWA-only)
+sluggo/release/
+
+# Legacy Electron leftovers
+skryptonite/release/
 
 # Misc
 *.suo

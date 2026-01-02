@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://jimminiglitch.github.io/skryptonite/sitemap.xml

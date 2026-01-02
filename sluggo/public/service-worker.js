@@ -1,6 +1,6 @@
-const CACHE_NAME = 'skryptonite-v6'
-// Use relative URLs so this works when hosted under a sub-path (e.g. GitHub Pages /skryptonite/).
-const CORE_ASSETS = ['./', './index.html', './manifest.json', './icon.png', './skryptonite.ico']
+const CACHE_NAME = 'sluggo-v1'
+// Use relative URLs so this works when hosted under a sub-path (e.g. GitHub Pages /sluggo/).
+const CORE_ASSETS = ['./', './index.html', './manifest.json', './sluggo.png', './icon-192.png', './icon-512.png', './sluggo.ico']
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -19,7 +19,7 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('message', (event) => {
-    if (event?.data?.type === 'SKRYPTONITE_SW_SKIP_WAITING') {
+    if (event?.data?.type === 'SLUGGO_SW_SKIP_WAITING') {
         self.skipWaiting()
     }
 })
