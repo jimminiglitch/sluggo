@@ -4,8 +4,10 @@ import './style.css'
 // SLUGGO - Industry-Standard Screenplay Editor
 // ============================================
 
-// Keep this in sync with sluggo/package.json (app folder).
-const APP_VERSION = '1.1.0'
+// Injected at build time by Vite (see vite.config.js).
+// Falls back to 0.0.0 if not defined for any reason.
+// eslint-disable-next-line no-undef
+const APP_VERSION = (typeof __SLUGGO_APP_VERSION__ === 'string' && __SLUGGO_APP_VERSION__) ? __SLUGGO_APP_VERSION__ : '0.0.0'
 
 // DOM Elements
 const editor = document.getElementById('editor')
@@ -1109,6 +1111,9 @@ const menuActions = {
 // ============================================
 // UPDATE CHECK (best-effort; GitHub-hosted)
 // ============================================
+const GITHUB_REPO = 'jimminiglitch/sluggo'
+const GITHUB_REPO_URL = `https://github.com/${GITHUB_REPO}`
+
 function normalizeVersion(raw) {
   return String(raw || '').trim().replace(/^v/i, '')
 }
@@ -1143,15 +1148,45 @@ async function fetchJsonWithTimeout(url, { timeoutMs = 6000 } = {}) {
   }
 }
 
+async function getLatestVersionFromRepoPackageJson() {
+  // Works even when the repo has no tags/releases yet.
+  const candidateUrls = [
+    `https://raw.githubusercontent.com/${GITHUB_REPO}/main/sluggo/package.json`,
+    `https://cdn.jsdelivr.net/gh/${GITHUB_REPO}@main/sluggo/package.json`
+  ]
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetchJsonWithTimeout(url)
+      if (!res.ok) continue
+      const data = await res.json()
+      const version = data?.version
+      if (version) {
+        return {
+          version: normalizeVersion(version),
+          url: `${GITHUB_REPO_URL}/blob/main/sluggo/package.json`,
+          source: 'package.json'
+        }
+      }
+    } catch (_) {
+      // try next url
+    }
+  }
+
+  return null
+}
+
 async function getLatestVersionFromGitHub() {
   // Prefer releases if present.
-  const releaseUrl = 'https://api.github.com/repos/jimminiglitch/sluggo/releases/latest'
+  const releaseUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`
+  let lastApiStatus = null
   try {
     const res = await fetchJsonWithTimeout(releaseUrl)
+    lastApiStatus = res.status
     if (res.ok) {
       const data = await res.json()
       const version = data?.tag_name || data?.name
-      const pageUrl = data?.html_url || 'https://github.com/jimminiglitch/sluggo/releases'
+      const pageUrl = data?.html_url || `${GITHUB_REPO_URL}/releases`
       if (version) return { version: normalizeVersion(version), url: pageUrl, source: 'release' }
     }
     // If the repo has no releases, GitHub returns 404.
@@ -1160,17 +1195,29 @@ async function getLatestVersionFromGitHub() {
   }
 
   // Fall back to latest tag.
-  const tagsUrl = 'https://api.github.com/repos/jimminiglitch/sluggo/tags?per_page=1'
-  const res = await fetchJsonWithTimeout(tagsUrl)
-  if (res.ok) {
-    const tags = await res.json()
-    const first = Array.isArray(tags) ? tags[0] : null
-    const version = first?.name
-    const pageUrl = 'https://github.com/jimminiglitch/sluggo/tags'
-    if (version) return { version: normalizeVersion(version), url: pageUrl, source: 'tag' }
+  const tagsUrl = `https://api.github.com/repos/${GITHUB_REPO}/tags?per_page=1`
+  try {
+    const res = await fetchJsonWithTimeout(tagsUrl)
+    lastApiStatus = res.status
+    if (res.ok) {
+      const tags = await res.json()
+      const first = Array.isArray(tags) ? tags[0] : null
+      const version = first?.name
+      const pageUrl = `${GITHUB_REPO_URL}/tags`
+      if (version) return { version: normalizeVersion(version), url: pageUrl, source: 'tag' }
+    }
+  } catch (_) {
+    // ignore
   }
 
-  return { version: null, url: 'https://github.com/jimminiglitch/sluggo', source: 'unknown' }
+  const pkg = await getLatestVersionFromRepoPackageJson()
+  if (pkg) return pkg
+
+  const reason = lastApiStatus === 403
+    ? 'GitHub API rate limited (403).'
+    : (lastApiStatus ? `GitHub API returned ${lastApiStatus}.` : 'Network/API error.')
+
+  return { version: null, url: GITHUB_REPO_URL, source: 'unknown', reason }
 }
 
 async function checkForUpdates() {
@@ -1183,8 +1230,9 @@ async function checkForUpdates() {
   try {
     const latest = await getLatestVersionFromGitHub()
     if (!latest.version) {
+      const extra = latest.reason ? `\n\nDetails: ${latest.reason}` : ''
       const open = confirm(
-        `Could not determine the latest version automatically.\n\nCurrent: v${current}\n\nOpen SlugGo on GitHub?`
+        `Could not determine the latest version automatically.\n\nCurrent: v${current}${extra}\n\nOpen SlugGo on GitHub?`
       )
       if (open) window.open(latest.url, '_blank', 'noopener')
       return
