@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sluggo-v1'
+const CACHE_NAME = 'sluggo-v2'
 // Use relative URLs so this works when hosted under a sub-path (e.g. GitHub Pages /sluggo/).
 const CORE_ASSETS = ['./', './index.html', './manifest.json', './sluggo.png', './icon-192.png', './icon-512.png', './sluggo.ico']
 
