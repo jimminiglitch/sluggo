@@ -143,8 +143,15 @@ function updatePageJumpOptions() {
   pageJumpSelect.innerHTML = ''
   const placeholder = document.createElement('option')
   placeholder.value = ''
-  placeholder.textContent = pages.length ? 'Page…' : 'No pages'
+  placeholder.textContent = (pages.length || titlePageView) ? 'Page…' : 'No pages'
   pageJumpSelect.appendChild(placeholder)
+
+  if (titlePageView) {
+    const opt = document.createElement('option')
+    opt.value = 'title'
+    opt.textContent = 'Title'
+    pageJumpSelect.appendChild(opt)
+  }
 
   pages.forEach((_, idx) => {
     const n = idx + 1
@@ -155,7 +162,9 @@ function updatePageJumpOptions() {
   })
 
   // Preserve selection if still valid.
-  if (prevValue && Number(prevValue) >= 1 && Number(prevValue) <= pages.length) {
+  if (prevValue === 'title' && titlePageView) {
+    pageJumpSelect.value = prevValue
+  } else if (prevValue && Number(prevValue) >= 1 && Number(prevValue) <= pages.length) {
     pageJumpSelect.value = prevValue
   } else {
     pageJumpSelect.value = ''
@@ -163,6 +172,13 @@ function updatePageJumpOptions() {
 }
 
 function jumpToPage(pageNumber) {
+  if (pageNumber === 'title') {
+    if (!titlePageView) return
+    if (!isTitlePageVisible()) setTitlePageVisible(true)
+    titlePageView.scrollIntoView({ block: 'start' })
+    return
+  }
+
   const n = Number(pageNumber)
   if (!Number.isFinite(n) || n < 1) return
   const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
