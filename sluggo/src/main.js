@@ -690,6 +690,9 @@ const menuActions = {
 // Hover intent state
 let isMenuOpen = false
 
+const menuBar = document.querySelector('.menu-bar')
+let lastOpenedMenuTrigger = null
+
 // Attach menu handlers
 document.querySelectorAll('.menu-item').forEach(item => {
   const trigger = item.querySelector('.menu-trigger')
@@ -726,8 +729,16 @@ document.querySelectorAll('.menu-item').forEach(item => {
 
   trigger.addEventListener('click', (e) => {
     e.stopPropagation()
+    const isExpanded = trigger.getAttribute('aria-expanded') === 'true'
+    if (isExpanded) {
+      isMenuOpen = false
+      closeAllMenus()
+      return
+    }
+
     closeAllMenus()
     isMenuOpen = true
+    lastOpenedMenuTrigger = trigger
     item.querySelector('.menu-dropdown').style.display = 'block'
     trigger.setAttribute('aria-expanded', 'true')
   })
@@ -765,6 +776,29 @@ function closeAllMenus() {
   document.querySelectorAll('.menu-dropdown').forEach(el => el.style.display = '')
   document.querySelectorAll('.menu-trigger[aria-expanded="true"]').forEach(t => t.setAttribute('aria-expanded', 'false'))
 }
+
+// Close menus when leaving the menu bar (mouse navigation).
+menuBar?.addEventListener('mouseleave', () => {
+  isMenuOpen = false
+  closeAllMenus()
+})
+
+// Close menus when focus leaves the menu bar (keyboard navigation).
+menuBar?.addEventListener('focusout', (e) => {
+  const next = e.relatedTarget
+  if (next && menuBar.contains(next)) return
+  isMenuOpen = false
+  closeAllMenus()
+})
+
+// Close menus on Escape anywhere within the menu bar.
+menuBar?.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return
+  e.preventDefault()
+  isMenuOpen = false
+  closeAllMenus()
+  lastOpenedMenuTrigger?.focus?.()
+})
 
 // Close menus on outside click
 document.addEventListener('click', () => {
