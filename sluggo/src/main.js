@@ -1131,7 +1131,11 @@ const GITHUB_REPO = 'jimminiglitch/sluggo'
 const GITHUB_REPO_URL = `https://github.com/${GITHUB_REPO}`
 
 function normalizeVersion(raw) {
-  return String(raw || '').trim().replace(/^v/i, '')
+  return String(raw || '')
+    .trim()
+    .replace(/^v/i, '')
+    // Drop semver pre-release/build metadata when comparing.
+    .split(/[+-]/)[0]
 }
 
 function compareSemver(a, b) {

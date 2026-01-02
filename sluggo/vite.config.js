@@ -1,8 +1,6 @@
 import { defineConfig } from 'vite'
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
+import { execSync } from 'node:child_process'
 
 function getAppVersion() {
   try {
@@ -14,13 +12,36 @@ function getAppVersion() {
   }
 }
 
+function getBuildShaShort() {
+  // Prefer CI-provided SHA.
+  const envSha = process.env.GITHUB_SHA || process.env.VITE_GITHUB_SHA
+  if (envSha) return String(envSha).slice(0, 7)
+
+  // Fall back to local git.
+  try {
+    const sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString('utf8')
+      .trim()
+    return sha || ''
+  } catch (_) {
+    return ''
+  }
+}
+
+function getAppVersionString() {
+  const base = getAppVersion()
+  const sha = getBuildShaShort()
+  // SemVer build metadata: 1.2.3+abc1234
+  return sha ? `${base}+${sha}` : base
+}
+
 export default defineConfig(() => {
   // For GitHub Pages, the site is served from /<repo-name>/
   // In GitHub Actions we can derive the repo name from GITHUB_REPOSITORY.
   const repo = process.env.GITHUB_REPOSITORY?.split('/')?.[1]
   const base = process.env.VITE_BASE ?? ((process.env.GITHUB_ACTIONS && repo) ? `/${repo}/` : '/')
 
-  const appVersion = getAppVersion()
+  const appVersion = getAppVersionString()
 
   return {
     base,
