@@ -1839,6 +1839,15 @@ function getScriptData() {
   }
 }
 
+function ensureEditorHasAtLeastOnePage() {
+  if (!editor) return
+  const existing = editor.querySelector('.screenplay-page:not(.title-page-view)')
+  if (existing) return
+
+  const page = createNewPage()
+  page.innerHTML = '<div class="el-action"><br></div>'
+}
+
 function loadScriptData(data) {
   if (data.content) {
     clearEditor()
@@ -1846,6 +1855,9 @@ function loadScriptData(data) {
     const titlePage = document.getElementById('title-page-view')
     titlePage.insertAdjacentHTML('afterend', data.content)
   }
+
+  // If loaded data has no pages (e.g., empty/old workspace payload), ensure the user has something to write on.
+  ensureEditorHasAtLeastOnePage()
 
   if (data.metadata) {
     const titleEl = document.getElementById('input-title')
