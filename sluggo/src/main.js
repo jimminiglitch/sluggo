@@ -1822,13 +1822,18 @@ function parsePlainTextToScriptData(text) {
 }
 
 function getScriptData() {
+  const readValue = (id) => {
+    const el = document.getElementById(id)
+    return el?.value ?? ''
+  }
+
   return {
     metadata: {
-      title: document.getElementById('input-title').value,
-      author: document.getElementById('input-author').value,
-      contact: document.getElementById('input-contact').value,
-      date: document.getElementById('input-date').value,
-      rights: document.getElementById('input-rights')?.value || ''
+      title: readValue('input-title'),
+      author: readValue('input-author'),
+      contact: readValue('input-contact'),
+      date: readValue('input-date'),
+      rights: readValue('input-rights')
     },
     content: Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)')).map(p => p.outerHTML).join('')
   }
@@ -1843,10 +1848,14 @@ function loadScriptData(data) {
   }
 
   if (data.metadata) {
-    document.getElementById('input-title').value = data.metadata.title || ''
-    document.getElementById('input-author').value = data.metadata.author || ''
-    document.getElementById('input-contact').value = data.metadata.contact || ''
-    document.getElementById('input-date').value = data.metadata.date || ''
+    const titleEl = document.getElementById('input-title')
+    if (titleEl) titleEl.value = data.metadata.title || ''
+    const authorEl = document.getElementById('input-author')
+    if (authorEl) authorEl.value = data.metadata.author || ''
+    const contactEl = document.getElementById('input-contact')
+    if (contactEl) contactEl.value = data.metadata.contact || ''
+    const dateEl = document.getElementById('input-date')
+    if (dateEl) dateEl.value = data.metadata.date || ''
     const rightsEl = document.getElementById('input-rights')
     if (rightsEl) rightsEl.value = data.metadata.rights || ''
   }
