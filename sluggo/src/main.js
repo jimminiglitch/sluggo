@@ -61,6 +61,10 @@ function toggleSidebar() {
 const darkModeToggleBtn = document.getElementById('darkmode-toggle')
 const titleToggleBtn = document.getElementById('title-toggle')
 const bodyToggleBtn = document.getElementById('body-toggle')
+const pageNumbersToggle = document.getElementById('page-numbers-toggle')
+const pageJumpSelect = document.getElementById('page-jump')
+
+const VIEW_PAGE_NUMBERS_KEY = 'skryptonite_view_page_numbers'
 
 function isDarkPaperEnabled() {
   return document.body.classList.contains('dark-paper')
@@ -102,6 +106,64 @@ function setBodyVisible(visible) {
   editor?.classList?.toggle('hide-body', !visible)
   updateViewToggleUI()
   scheduleQuickBarUpdate()
+}
+
+function isViewPageNumbersEnabled() {
+  return document.body.classList.contains('view-page-numbers')
+}
+
+function setViewPageNumbersEnabled(enabled) {
+  document.body.classList.toggle('view-page-numbers', !!enabled)
+  if (pageNumbersToggle) pageNumbersToggle.checked = !!enabled
+  try {
+    localStorage.setItem(VIEW_PAGE_NUMBERS_KEY, enabled ? '1' : '0')
+  } catch (_) {
+    // Ignore
+  }
+}
+
+function loadViewPageNumbersPreference() {
+  try {
+    return localStorage.getItem(VIEW_PAGE_NUMBERS_KEY) === '1'
+  } catch (_) {
+    return false
+  }
+}
+
+function updatePageJumpOptions() {
+  if (!pageJumpSelect) return
+  const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
+  const prevValue = pageJumpSelect.value
+
+  pageJumpSelect.innerHTML = ''
+  const placeholder = document.createElement('option')
+  placeholder.value = ''
+  placeholder.textContent = pages.length ? 'Page…' : 'No pages'
+  pageJumpSelect.appendChild(placeholder)
+
+  pages.forEach((_, idx) => {
+    const n = idx + 1
+    const opt = document.createElement('option')
+    opt.value = String(n)
+    opt.textContent = `Page ${n}`
+    pageJumpSelect.appendChild(opt)
+  })
+
+  // Preserve selection if still valid.
+  if (prevValue && Number(prevValue) >= 1 && Number(prevValue) <= pages.length) {
+    pageJumpSelect.value = prevValue
+  } else {
+    pageJumpSelect.value = ''
+  }
+}
+
+function jumpToPage(pageNumber) {
+  const n = Number(pageNumber)
+  if (!Number.isFinite(n) || n < 1) return
+  const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
+  const page = pages[n - 1]
+  if (!page) return
+  page.scrollIntoView({ block: 'start' })
 }
 
 // Modals
@@ -845,6 +907,22 @@ darkModeToggleBtn?.addEventListener('click', () => {
 })
 
 updateViewToggleUI()
+
+// Page numbers + jump-to-page UI
+pageNumbersToggle?.addEventListener('change', () => {
+  setViewPageNumbersEnabled(!!pageNumbersToggle.checked)
+})
+
+pageJumpSelect?.addEventListener('change', () => {
+  const value = pageJumpSelect.value
+  if (!value) return
+  jumpToPage(value)
+  // Reset to placeholder so it behaves like a "jump" control.
+  pageJumpSelect.value = ''
+})
+
+setViewPageNumbersEnabled(loadViewPageNumbersPreference())
+updatePageJumpOptions()
 
 // Scroll handler for sidebar highlighting
 const editorWrapper = document.querySelector('.editor-container')
@@ -2177,6 +2255,8 @@ function updateUI() {
 }
 
 // Sidebar Navigation
+
+  updatePageJumpOptions()
 sceneList.addEventListener('click', (e) => {
   const item = e.target.closest('.scene-item')
   if (!item || !item.dataset.sceneId) return
