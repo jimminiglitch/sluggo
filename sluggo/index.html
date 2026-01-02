@@ -56,6 +56,7 @@
         <div class="menu-dropdown">
           <button data-action="undo"><span>Undo</span><kbd>Ctrl+Z</kbd></button>
           <button data-action="redo"><span>Redo</span><kbd>Ctrl+Y</kbd></button>
+          <button data-action="history"><span>History...</span></button>
           <div class="menu-divider"></div>
           <button data-action="cut"><span>Cut</span><kbd>Ctrl+X</kbd></button>
           <button data-action="copy"><span>Copy</span><kbd>Ctrl+C</kbd></button>
@@ -332,6 +333,18 @@
       <div class="find-status" id="find-status" aria-live="polite"></div>
 
       <button class="btn-primary" id="close-find">Close</button>
+    </div>
+  </div>
+
+  <!-- HISTORY MODAL -->
+  <div id="history-modal" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <h2>History</h2>
+      <p>Browse snapshots. Edit labels and restore any checkpoint.</p>
+
+      <div class="history-list" id="history-list" aria-label="History snapshots"></div>
+
+      <button class="btn-primary" id="close-history">Close</button>
     </div>
   </div>
 

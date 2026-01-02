@@ -13,6 +13,20 @@
     "writing",
     "utilities"
   ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "file_handlers": [
+    {
+      "action": "./",
+      "name": "SlugGo Script",
+      "accept": {
+        "application/x-sluggo+json": [
+          ".sluggo"
+        ]
+      }
+    }
+  ],
   "icons": [
     {
       "src": "./icon-192.png",

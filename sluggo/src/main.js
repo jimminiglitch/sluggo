@@ -180,6 +180,8 @@ const licenseModal = document.getElementById('license-modal')
 const docsModal = document.getElementById('docs-modal')
 const settingsModal = document.getElementById('settings-modal')
 const findModal = document.getElementById('find-modal')
+const historyModal = document.getElementById('history-modal')
+const historyListEl = document.getElementById('history-list')
 
 const findEls = {
   title: document.getElementById('find-modal-title'),
@@ -199,6 +201,97 @@ const settingsEls = {
   pageNumbersStart2: document.getElementById('setting-page-numbers-start-2'),
   printHeaderStyle: document.getElementById('setting-print-header-style'),
   marginPreset: document.getElementById('setting-margin-preset')
+}
+
+function renderHistoryList() {
+  if (!historyListEl) return
+  historyListEl.innerHTML = ''
+
+  const addSection = (title) => {
+    const el = document.createElement('div')
+    el.className = 'history-section-title'
+    el.textContent = title
+    historyListEl.appendChild(el)
+  }
+
+  const addEmptyRow = (message) => {
+    const row = document.createElement('div')
+    row.className = 'history-row'
+    const meta = document.createElement('div')
+    meta.className = 'history-meta'
+    const sub = document.createElement('div')
+    sub.className = 'history-subtext'
+    sub.textContent = message
+    meta.appendChild(sub)
+    row.appendChild(meta)
+    row.appendChild(document.createElement('div'))
+    historyListEl.appendChild(row)
+  }
+
+  const addRow = (state, { allowRestore = true } = {}) => {
+    const row = document.createElement('div')
+    row.className = 'history-row'
+
+    const meta = document.createElement('div')
+    meta.className = 'history-meta'
+
+    const labelInput = document.createElement('input')
+    labelInput.className = 'history-label'
+    labelInput.type = 'text'
+
+    const fallback = getHistoryFallbackLabel(state)
+    labelInput.value = (state.label || fallback)
+    labelInput.placeholder = fallback
+    labelInput.disabled = !allowRestore
+    labelInput.addEventListener('input', () => {
+      state.label = (labelInput.value || '').trim()
+    })
+
+    const sub = document.createElement('div')
+    sub.className = 'history-subtext'
+    const ts = formatHistoryTimestamp(state.createdAt)
+    const tag = (state.inputType || '').trim()
+    sub.textContent = [ts, tag].filter(Boolean).join(' • ')
+
+    meta.appendChild(labelInput)
+    meta.appendChild(sub)
+
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'history-restore'
+    btn.textContent = 'Restore'
+    btn.disabled = !allowRestore
+    btn.addEventListener('click', () => {
+      restoreFromHistory(state)
+      closeModal(historyModal)
+    })
+
+    row.appendChild(meta)
+    row.appendChild(btn)
+    historyListEl.appendChild(row)
+  }
+
+  addSection('Current')
+  addRow(captureHistoryState({ inputType: 'current', label: 'Current' }), { allowRestore: false })
+
+  addSection('Undo')
+  if (historyUndoStack.length === 0) {
+    addEmptyRow('No undo history yet.')
+  } else {
+    historyUndoStack.slice().reverse().forEach(s => addRow(s))
+  }
+
+  addSection('Redo')
+  if (historyRedoStack.length === 0) {
+    addEmptyRow('No redo history.')
+  } else {
+    historyRedoStack.slice().reverse().forEach(s => addRow(s))
+  }
+}
+
+function openHistoryModal() {
+  renderHistoryList()
+  openModal(historyModal)
 }
 
 const DEFAULT_SETTINGS = {
@@ -407,6 +500,34 @@ let activeTabId = null
 let untitledCounter = 1
 
 // ============================================
+// FILE EXTENSIONS
+// ============================================
+const PRIMARY_SCRIPT_EXTENSION = '.sluggo'
+const LEGACY_SCRIPT_EXTENSION = '.skrypt'
+
+function withPrimaryScriptExtension(fileName) {
+  const name = String(fileName || '').trim()
+  if (!name) return `Untitled ${untitledCounter}${PRIMARY_SCRIPT_EXTENSION}`
+  if (name.toLowerCase().endsWith(PRIMARY_SCRIPT_EXTENSION)) return name
+  if (name.toLowerCase().endsWith(LEGACY_SCRIPT_EXTENSION)) {
+    return name.slice(0, -LEGACY_SCRIPT_EXTENSION.length) + PRIMARY_SCRIPT_EXTENSION
+  }
+  return name + PRIMARY_SCRIPT_EXTENSION
+}
+
+function stripScriptExtension(fileName) {
+  const name = String(fileName || '')
+  return name
+    .replace(/\.sluggo$/i, '')
+    .replace(/\.skrypt$/i, '')
+}
+
+function isNativeScriptFileName(fileName) {
+  const lower = String(fileName || '').toLowerCase()
+  return lower.endsWith(PRIMARY_SCRIPT_EXTENSION) || lower.endsWith(LEGACY_SCRIPT_EXTENSION)
+}
+
+// ============================================
 // UNDO / REDO (custom history to include formatting)
 // ============================================
 const HISTORY_LIMIT = 200
@@ -415,6 +536,12 @@ let historyRedoStack = []
 let historyIsRestoring = false
 let historyLastRecordAt = 0
 let historyLastInputType = ''
+let historyIdCounter = 1
+
+function createHistoryId() {
+  historyIdCounter += 1
+  return `${Date.now()}-${historyIdCounter}-${Math.random().toString(16).slice(2)}`
+}
 
 function getDomPath(node, root) {
   const path = []
@@ -471,11 +598,18 @@ function restoreSelectionSnapshot(snapshot) {
   sel.addRange(range)
 }
 
-function captureHistoryState() {
+function captureHistoryState({ inputType = '', label = '' } = {}) {
   // Only capture body content + metadata (formatting lives in body DOM).
   const scriptData = getScriptData()
   const selection = captureSelectionSnapshot()
-  return { scriptData, selection }
+  return {
+    id: createHistoryId(),
+    createdAt: Date.now(),
+    inputType: inputType || '',
+    label: label || '',
+    scriptData,
+    selection
+  }
 }
 
 function restoreHistoryState(state) {
@@ -501,7 +635,7 @@ function recordHistoryCheckpoint({ inputType = '' } = {}) {
   const coalesce = inputType && inputType === historyLastInputType && (now - historyLastRecordAt) < 750
   if (coalesce) return
 
-  const state = captureHistoryState()
+  const state = captureHistoryState({ inputType })
   const last = historyUndoStack[historyUndoStack.length - 1]
   // Avoid duplicates.
   if (last && last.scriptData?.content === state.scriptData?.content && JSON.stringify(last.scriptData?.metadata) === JSON.stringify(state.scriptData?.metadata)) {
@@ -515,9 +649,39 @@ function recordHistoryCheckpoint({ inputType = '' } = {}) {
   historyLastInputType = inputType || ''
 }
 
+function pushUndoState(state, { clearRedo = true } = {}) {
+  if (!state) return
+  historyUndoStack.push(state)
+  if (historyUndoStack.length > HISTORY_LIMIT) historyUndoStack.shift()
+  if (clearRedo) historyRedoStack = []
+}
+
+function formatHistoryTimestamp(ms) {
+  if (!ms) return ''
+  try {
+    const d = new Date(ms)
+    return d.toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  } catch (_) {
+    return ''
+  }
+}
+
+function getHistoryFallbackLabel(state) {
+  const inputType = String(state?.inputType || '')
+  if (!inputType) return 'Edit'
+  if (inputType === 'format') return 'Format'
+  if (inputType === 'history-restore') return 'Restore'
+  if (inputType === 'undo') return 'Undo'
+  if (inputType === 'redo') return 'Redo'
+  if (inputType === 'current') return 'Current'
+  if (inputType.startsWith('insert')) return 'Typing'
+  if (inputType.startsWith('delete')) return 'Delete'
+  return inputType
+}
+
 function historyUndo() {
   if (historyUndoStack.length === 0) return
-  const current = captureHistoryState()
+  const current = captureHistoryState({ inputType: 'undo' })
   const prev = historyUndoStack.pop()
   historyRedoStack.push(current)
   restoreHistoryState(prev)
@@ -525,10 +689,16 @@ function historyUndo() {
 
 function historyRedo() {
   if (historyRedoStack.length === 0) return
-  const current = captureHistoryState()
+  const current = captureHistoryState({ inputType: 'redo' })
   const next = historyRedoStack.pop()
-  historyUndoStack.push(current)
+  pushUndoState(current, { clearRedo: false })
   restoreHistoryState(next)
+}
+
+function restoreFromHistory(state) {
+  if (!state) return
+  pushUndoState(captureHistoryState({ inputType: 'history-restore', label: 'Before restore' }))
+  restoreHistoryState(state)
 }
 
 function getDefaultAutocompleteData() {
@@ -677,8 +847,8 @@ function createTab({ fileName, fileHandle = null, data, isDirty = false }) {
 
 function createNewTabFromTemplate() {
   persistActiveTabState()
-  const fileName = `Untitled ${untitledCounter++}.skrypt`
-  const titleBase = fileName.replace(/\.skrypt$/i, '')
+  const fileName = `Untitled ${untitledCounter++}${PRIMARY_SCRIPT_EXTENSION}`
+  const titleBase = stripScriptExtension(fileName)
   const todayIso = new Date().toISOString().slice(0, 10)
   const data = getTemplateScriptData({ title: titleBase.toUpperCase(), date: todayIso })
   const id = createTab({ fileName, data, isDirty: false })
@@ -761,6 +931,34 @@ function armDeferredInstallPromptOnce() {
   // Prompt must be triggered by a user gesture.
   window.addEventListener('click', onFirstUserGesture, { once: true, capture: true })
   window.addEventListener('keydown', onFirstUserGesture, { once: true, capture: true })
+}
+
+// ============================================
+// PWA FILE HANDLING (best-effort)
+// ============================================
+async function openFileHandleViaPwa(fileHandle) {
+  if (!fileHandle) return
+  try {
+    const file = await fileHandle.getFile()
+    const content = await file.text()
+    const data = isNativeScriptFileName(file.name)
+      ? JSON.parse(content)
+      : parsePlainTextToScriptData(content)
+    openScriptInNewTab({ fileName: file.name, fileHandle, data })
+  } catch (err) {
+    console.error('Failed to open file from PWA handler:', err)
+    alert('Could not open that file.')
+  }
+}
+
+if (window.launchQueue && typeof window.launchQueue.setConsumer === 'function') {
+  window.launchQueue.setConsumer(async (launchParams) => {
+    const files = launchParams?.files
+    if (!files || !files.length) return
+    for (const fh of files) {
+      await openFileHandleViaPwa(fh)
+    }
+  })
 }
 
 function updateInstallMenuVisibility() {
@@ -847,8 +1045,9 @@ const menuActions = {
   'export-txt': () => exportPlainText(),
 
   // Edit
-  'undo': () => document.execCommand('undo'),
-  'redo': () => document.execCommand('redo'),
+  'undo': () => historyUndo(),
+  'redo': () => historyRedo(),
+  'history': () => openHistoryModal(),
   'cut': () => document.execCommand('cut'),
   'copy': () => document.execCommand('copy'),
   'paste': () => document.execCommand('paste'),
@@ -1083,6 +1282,10 @@ document.getElementById('close-settings')?.addEventListener('click', () => {
 
 findEls.close?.addEventListener('click', () => {
   closeModal(findModal)
+})
+
+document.getElementById('close-history')?.addEventListener('click', () => {
+  closeModal(historyModal)
 })
 
 settingsEls.includeTitlePage?.addEventListener('change', () => {
@@ -1925,8 +2128,51 @@ editor.addEventListener('input', (e) => {
 function handleEnter(e) {
   e.preventDefault()
 
+  // Since we preventDefault(), the browser won't emit a useful beforeinput
+  // for history. Capture a checkpoint now.
+  recordHistoryCheckpoint({ inputType: 'insertParagraph' })
+
   let currentLine = getCurrentLine()
   if (!currentLine) currentLine = ensureLineExists()
+
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) return
+  let caretRange = selection.getRangeAt(0)
+
+  // If there's a selection, delete it first and continue as a collapsed caret.
+  if (!selection.isCollapsed) {
+    caretRange.deleteContents()
+    selection.removeAllRanges()
+    selection.addRange(caretRange)
+  }
+
+  // If the caret is within the current line, split it and move the trailing
+  // content to the new line.
+  let movedTrailingContent = false
+  let trailingFragment = null
+  try {
+    const container = caretRange.startContainer
+    if (currentLine && container && currentLine.contains(container)) {
+      const splitRange = document.createRange()
+      splitRange.setStart(caretRange.startContainer, caretRange.startOffset)
+      splitRange.setEnd(currentLine, currentLine.childNodes.length)
+      trailingFragment = splitRange.extractContents()
+
+      // Detect whether anything meaningful was moved.
+      movedTrailingContent = !!(trailingFragment && (trailingFragment.textContent || '').length) || (trailingFragment && trailingFragment.childNodes && trailingFragment.childNodes.length > 0)
+    }
+  } catch (_) {
+    movedTrailingContent = false
+    trailingFragment = null
+  }
+
+  const getElementForLine = (line) => {
+    if (!line) return 'action'
+    for (const [elem, cls] of Object.entries(ELEMENT_CLASSES)) {
+      if (line.classList.contains(cls)) return elem
+    }
+    return 'action'
+  }
 
   // Determine new element
   let newElement = currentElement
@@ -1937,12 +2183,25 @@ function handleEnter(e) {
     'parenthetical': 'dialogue',
     'transition': 'scene-heading'
   }
-  newElement = transitions[currentElement] || 'action'
+  if (movedTrailingContent) {
+    // Split line: keep the same element type for the moved content.
+    newElement = getElementForLine(currentLine)
+  } else {
+    // End-of-line behavior: keep the existing smart transitions.
+    newElement = transitions[currentElement] || 'action'
+  }
 
   // Create new line
   const newPara = document.createElement('div')
   newPara.className = getElementClass(newElement)
-  newPara.innerHTML = '<br>'
+  if (movedTrailingContent && trailingFragment) {
+    newPara.appendChild(trailingFragment)
+    if (newPara.childNodes.length === 0 || (newPara.textContent || '').length === 0) {
+      newPara.innerHTML = '<br>'
+    }
+  } else {
+    newPara.innerHTML = '<br>'
+  }
 
   const page = getCurrentPage()
   if (currentLine && currentLine.parentElement === page) {
@@ -1952,7 +2211,6 @@ function handleEnter(e) {
   }
 
   // Move cursor
-  const selection = window.getSelection()
   const range = document.createRange()
   range.selectNodeContents(newPara)
   range.collapse(true)
@@ -2062,10 +2320,10 @@ async function saveScript(asNew = false) {
     // Save As / New Save
     try {
       const handle = await window.showSaveFilePicker({
-        suggestedName: tab.fileName,
+        suggestedName: withPrimaryScriptExtension(tab.fileName),
         types: [{
           description: 'SlugGo Script',
-          accept: { 'application/json': ['.skrypt'] }
+          accept: { 'application/x-sluggo+json': [PRIMARY_SCRIPT_EXTENSION] }
         }]
       })
       tab.fileHandle = handle
@@ -2079,7 +2337,7 @@ async function saveScript(asNew = false) {
       // User cancelled or not supported
       if (err.name !== 'AbortError') {
         // Fallback for browsers without FS API
-        downloadFile(scriptData, tab.fileName, 'application/json')
+        downloadFile(scriptData, withPrimaryScriptExtension(tab.fileName), 'application/json')
         markSaved()
       }
     }
@@ -2092,7 +2350,7 @@ async function openScript() {
       types: [{
         description: 'Scripts',
         accept: {
-          'application/json': ['.skrypt'],
+          'application/x-sluggo+json': [PRIMARY_SCRIPT_EXTENSION, LEGACY_SCRIPT_EXTENSION],
           'text/plain': ['.txt', '.fountain']
         }
       }]
@@ -2102,7 +2360,7 @@ async function openScript() {
     const content = await file.text()
 
     let data
-    if (file.name.endsWith('.skrypt')) {
+    if (isNativeScriptFileName(file.name)) {
       data = JSON.parse(content)
     } else {
       data = parsePlainTextToScriptData(content)
@@ -2115,14 +2373,14 @@ async function openScript() {
       // Fallback
       const input = document.createElement('input')
       input.type = 'file'
-      input.accept = '.skrypt,.txt,.fountain'
+      input.accept = `${PRIMARY_SCRIPT_EXTENSION},${LEGACY_SCRIPT_EXTENSION},.txt,.fountain`
       input.onchange = (e) => {
         const file = e.target.files[0]
         if (file) {
           const reader = new FileReader()
           reader.onload = (e) => {
             let data
-            if (file.name.endsWith('.skrypt')) {
+            if (isNativeScriptFileName(file.name)) {
               data = JSON.parse(e.target.result)
             } else {
               data = parsePlainTextToScriptData(e.target.result)
@@ -2307,7 +2565,7 @@ function getPlainTextExport() {
 
 function exportPlainText() {
   const tab = getActiveTab()
-  const base = tab?.fileName?.replace(/\.skrypt$/i, '') || 'screenplay'
+  const base = stripScriptExtension(tab?.fileName) || 'screenplay'
   downloadFile(getPlainTextExport(), `${base}.txt`, 'text/plain')
 }
 
@@ -2674,13 +2932,13 @@ function init() {
     if (legacy) {
       try {
         const data = JSON.parse(legacy)
-        const id = createTab({ fileName: 'Recovered.skrypt', data, isDirty: false })
+        const id = createTab({ fileName: `Recovered${PRIMARY_SCRIPT_EXTENSION}`, data, isDirty: false })
         activeTabId = id
       } catch (_) {
         // Legacy content might be raw HTML.
         if (legacy.includes('el-')) {
           const data = { metadata: { title: '', author: '', contact: '', date: '' }, content: `<div class="screenplay-page">${legacy}</div>` }
-          const id = createTab({ fileName: 'Recovered.skrypt', data, isDirty: false })
+          const id = createTab({ fileName: `Recovered${PRIMARY_SCRIPT_EXTENSION}`, data, isDirty: false })
           activeTabId = id
         }
       }
