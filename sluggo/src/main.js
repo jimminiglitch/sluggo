@@ -59,6 +59,8 @@ function toggleSidebar() {
 }
 
 const darkModeToggleBtn = document.getElementById('darkmode-toggle')
+const titleToggleBtn = document.getElementById('title-toggle')
+const bodyToggleBtn = document.getElementById('body-toggle')
 
 function isDarkPaperEnabled() {
   return document.body.classList.contains('dark-paper')
@@ -75,6 +77,31 @@ function updateDarkModeToggleUI() {
 function toggleDarkPaperMode() {
   document.body.classList.toggle('dark-paper')
   updateDarkModeToggleUI()
+}
+
+function isTitlePageVisible() {
+  return !!titlePageView?.classList?.contains('active')
+}
+
+function isBodyVisible() {
+  return !editor?.classList?.contains('hide-body')
+}
+
+function updateViewToggleUI() {
+  titleToggleBtn?.setAttribute('aria-pressed', isTitlePageVisible() ? 'true' : 'false')
+  bodyToggleBtn?.setAttribute('aria-pressed', isBodyVisible() ? 'true' : 'false')
+}
+
+function setTitlePageVisible(visible) {
+  titlePageView?.classList?.toggle('active', !!visible)
+  updateViewToggleUI()
+  scheduleQuickBarUpdate()
+}
+
+function setBodyVisible(visible) {
+  editor?.classList?.toggle('hide-body', !visible)
+  updateViewToggleUI()
+  scheduleQuickBarUpdate()
 }
 
 // Modals
@@ -661,6 +688,7 @@ const menuActions = {
   'zoom-out': () => setZoom(zoomLevel - 0.1),
   'zoom-reset': () => setZoom(1),
   'title-page': () => toggleTitlePage(),
+  'toggle-body': () => setBodyVisible(!isBodyVisible()),
 
   // Format
   'el-scene-heading': () => applyElementToCurrentLine('scene-heading'),
@@ -814,6 +842,8 @@ document.addEventListener('selectionchange', () => {
 darkModeToggleBtn?.addEventListener('click', () => {
   toggleDarkPaperMode()
 })
+
+updateViewToggleUI()
 
 // Scroll handler for sidebar highlighting
 const editorWrapper = document.querySelector('.editor-container')
@@ -1250,13 +1280,7 @@ function setZoom(level) {
 // TITLE PAGE
 // ============================================
 function toggleTitlePage() {
-  const el = document.getElementById('title-page-view')
-  const isActive = el.classList.toggle('active')
-  // Hide/show other screenplay pages when title page is focused
-  document.querySelectorAll('.screenplay-page:not(.title-page-view)').forEach(page => {
-    page.style.display = isActive ? 'none' : ''
-  })
-  scheduleQuickBarUpdate()
+  setTitlePageVisible(!isTitlePageVisible())
 }
 
 // ============================================
@@ -1302,6 +1326,8 @@ function updateQuickBarActiveState() {
 
   const titlePageView = document.getElementById('title-page-view')
   const isTitlePageActive = Boolean(titlePageView?.classList?.contains('active'))
+  const caretInTitle = isTitlePageCaretActive()
+  const bodyHidden = !isBodyVisible()
 
   // Reset
   quickBar.querySelectorAll('.quick-btn.is-active').forEach(btn => btn.classList.remove('is-active'))
@@ -1310,8 +1336,8 @@ function updateQuickBarActiveState() {
   const titleBtn = quickBar.querySelector('[data-action="title-page"]')
   if (titleBtn) titleBtn.classList.toggle('is-active', isTitlePageActive)
 
-  // If title page is active, don't highlight a screenplay line format.
-  if (isTitlePageActive) return
+  // If we're editing the title page (native inputs) or body is hidden, don't highlight a screenplay line format.
+  if (caretInTitle || bodyHidden) return
 
   const activeElement = getActiveElementFromCurrentLine() || currentElement
   const action = `el-${activeElement}`
@@ -1390,6 +1416,8 @@ function ensureLineExists() {
 }
 
 function applyElementToCurrentLine(element) {
+  if (isTitlePageCaretActive() || !isBodyVisible()) return
+
   let line = getCurrentLine()
   if (!line) line = ensureLineExists()
   if (!line) {
@@ -1463,6 +1491,11 @@ function isFormFieldTarget(target) {
 
 function isInsideTitlePage(target) {
   return !!(titlePageView && target && titlePageView.contains(target))
+}
+
+function isTitlePageCaretActive() {
+  const active = document.activeElement
+  return isFormFieldTarget(active) && isInsideTitlePage(active)
 }
 
 editor.addEventListener('keydown', (e) => {

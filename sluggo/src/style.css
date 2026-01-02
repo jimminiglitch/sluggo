@@ -624,6 +624,11 @@ body {
   display: block;
 }
 
+/* View toggles */
+#editor.hide-body .screenplay-page:not(.title-page-view) {
+  display: none;
+}
+
 /* Title page layout (industry-default-ish): centered title/by/author, contact bottom-left, draft/copyright bottom-right */
 .title-page-center {
   position: absolute;
