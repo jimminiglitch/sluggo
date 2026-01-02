@@ -521,6 +521,32 @@ const ELEMENT_CLASSES = {
 // PWA INSTALL / UNINSTALL (best-effort)
 // ============================================
 let deferredInstallPrompt = null
+let isInstallPromptArmed = false
+
+function armDeferredInstallPromptOnce() {
+  if (!deferredInstallPrompt || isInstallPromptArmed) return
+  if (isRunningStandalone()) return
+
+  isInstallPromptArmed = true
+
+  const onFirstUserGesture = async () => {
+    // Only prompt if still available.
+    if (!deferredInstallPrompt) return
+    try {
+      await deferredInstallPrompt.prompt()
+      await deferredInstallPrompt.userChoice?.catch(() => {})
+    } catch (_) {
+      // Ignore
+    } finally {
+      deferredInstallPrompt = null
+      updateInstallMenuVisibility()
+    }
+  }
+
+  // Prompt must be triggered by a user gesture.
+  window.addEventListener('click', onFirstUserGesture, { once: true, capture: true })
+  window.addEventListener('keydown', onFirstUserGesture, { once: true, capture: true })
+}
 
 function updateInstallMenuVisibility() {
   const installBtn = document.querySelector('[data-action="install-app"]')
@@ -536,11 +562,14 @@ window.addEventListener('beforeinstallprompt', (e) => {
   // Store the event so we can trigger it from a user gesture (menu click).
   e.preventDefault()
   deferredInstallPrompt = e
+  isInstallPromptArmed = false
   updateInstallMenuVisibility()
+  armDeferredInstallPromptOnce()
 })
 
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null
+  isInstallPromptArmed = false
   updateInstallMenuVisibility()
 })
 
@@ -567,6 +596,8 @@ async function promptInstall() {
   } finally {
     // Prompt can only be used once.
     deferredInstallPrompt = null
+    isInstallPromptArmed = false
+    updateInstallMenuVisibility()
   }
 }
 
