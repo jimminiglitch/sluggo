@@ -406,6 +406,131 @@ let tabs = []
 let activeTabId = null
 let untitledCounter = 1
 
+// ============================================
+// UNDO / REDO (custom history to include formatting)
+// ============================================
+const HISTORY_LIMIT = 200
+let historyUndoStack = []
+let historyRedoStack = []
+let historyIsRestoring = false
+let historyLastRecordAt = 0
+let historyLastInputType = ''
+
+function getDomPath(node, root) {
+  const path = []
+  let cur = node
+  while (cur && cur !== root) {
+    const parent = cur.parentNode
+    if (!parent) break
+    const idx = Array.prototype.indexOf.call(parent.childNodes, cur)
+    path.unshift(idx)
+    cur = parent
+  }
+  return cur === root ? path : null
+}
+
+function getNodeByPath(root, path) {
+  let cur = root
+  for (const idx of path) {
+    if (!cur || !cur.childNodes || idx < 0 || idx >= cur.childNodes.length) return null
+    cur = cur.childNodes[idx]
+  }
+  return cur
+}
+
+function captureSelectionSnapshot() {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return null
+  const range = sel.getRangeAt(0)
+  const container = range.startContainer
+  if (!editor || !editor.contains(container)) return null
+  const path = getDomPath(container, editor)
+  if (!path) return null
+  return {
+    path,
+    offset: range.startOffset
+  }
+}
+
+function restoreSelectionSnapshot(snapshot) {
+  if (!snapshot) return
+  const node = getNodeByPath(editor, snapshot.path)
+  if (!node) return
+  const sel = window.getSelection()
+  if (!sel) return
+  const range = document.createRange()
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    range.setStart(node, Math.max(0, Math.min(snapshot.offset, node.nodeValue?.length ?? 0)))
+  } else {
+    const max = node.childNodes?.length ?? 0
+    range.setStart(node, Math.max(0, Math.min(snapshot.offset, max)))
+  }
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
+}
+
+function captureHistoryState() {
+  // Only capture body content + metadata (formatting lives in body DOM).
+  const scriptData = getScriptData()
+  const selection = captureSelectionSnapshot()
+  return { scriptData, selection }
+}
+
+function restoreHistoryState(state) {
+  if (!state) return
+  historyIsRestoring = true
+  try {
+    loadScriptData(state.scriptData)
+    configureLoadedPages()
+    updatePageNumberAttributes()
+    // Try to restore caret; fall back to focusing editor.
+    restoreSelectionSnapshot(state.selection)
+    editor?.focus?.()
+  } finally {
+    historyIsRestoring = false
+  }
+}
+
+function recordHistoryCheckpoint({ inputType = '' } = {}) {
+  if (historyIsRestoring) return
+
+  // Coalesce rapid typing into a single undo step.
+  const now = Date.now()
+  const coalesce = inputType && inputType === historyLastInputType && (now - historyLastRecordAt) < 750
+  if (coalesce) return
+
+  const state = captureHistoryState()
+  const last = historyUndoStack[historyUndoStack.length - 1]
+  // Avoid duplicates.
+  if (last && last.scriptData?.content === state.scriptData?.content && JSON.stringify(last.scriptData?.metadata) === JSON.stringify(state.scriptData?.metadata)) {
+    return
+  }
+
+  historyUndoStack.push(state)
+  if (historyUndoStack.length > HISTORY_LIMIT) historyUndoStack.shift()
+  historyRedoStack = []
+  historyLastRecordAt = now
+  historyLastInputType = inputType || ''
+}
+
+function historyUndo() {
+  if (historyUndoStack.length === 0) return
+  const current = captureHistoryState()
+  const prev = historyUndoStack.pop()
+  historyRedoStack.push(current)
+  restoreHistoryState(prev)
+}
+
+function historyRedo() {
+  if (historyRedoStack.length === 0) return
+  const current = captureHistoryState()
+  const next = historyRedoStack.pop()
+  historyUndoStack.push(current)
+  restoreHistoryState(next)
+}
+
 function getDefaultAutocompleteData() {
   return {
     characters: new Set(),
@@ -1013,6 +1138,18 @@ document.addEventListener('keydown', (e) => {
   // Ctrl shortcuts
   if (ctrl) {
     switch (e.key.toLowerCase()) {
+      case 'z':
+        e.preventDefault()
+        if (shift) {
+          historyRedo()
+        } else {
+          historyUndo()
+        }
+        break
+      case 'y':
+        e.preventDefault()
+        historyRedo()
+        break
       case 'n':
         e.preventDefault()
         menuActions['new']()
@@ -1497,6 +1634,8 @@ function ensureLineExists() {
 function applyElementToCurrentLine(element) {
   if (isTitlePageCaretActive() || !isBodyVisible()) return
 
+  recordHistoryCheckpoint({ inputType: 'format' })
+
   let line = getCurrentLine()
   if (!line) line = ensureLineExists()
   if (!line) {
@@ -1597,6 +1736,15 @@ editor.addEventListener('keydown', (e) => {
     // handleArrowKeys(e) 
   }
 })
+
+// Capture history before any browser edit is applied to the contenteditable body.
+editor.addEventListener('beforeinput', (e) => {
+  if (historyIsRestoring) return
+  // Ignore IME composition + native history events.
+  if (e.isComposing) return
+  if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') return
+  recordHistoryCheckpoint({ inputType: e.inputType || '' })
+}, { capture: true })
 
 function handleBackspace(e) {
   const selection = window.getSelection()
