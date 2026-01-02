@@ -4,6 +4,9 @@ import './style.css'
 // SLUGGO - Industry-Standard Screenplay Editor
 // ============================================
 
+// Keep this in sync with sluggo/package.json (app folder).
+const APP_VERSION = '1.1.0'
+
 // DOM Elements
 const editor = document.getElementById('editor')
 const sceneList = document.getElementById('scene-list')
@@ -15,7 +18,7 @@ const sidebar = document.getElementById('sidebar')
 const titlePageView = document.getElementById('title-page-view')
 const tabBar = document.getElementById('tab-bar')
 
-const SIDEBAR_HIDDEN_KEY = 'skryptonite_sidebar_hidden'
+const SIDEBAR_HIDDEN_KEY = 'sluggo_sidebar_hidden'
 
 function isSidebarHidden() {
   // Note: On desktop this means "collapsed to rail"; on mobile it means "hidden".
@@ -64,7 +67,7 @@ const bodyToggleBtn = document.getElementById('body-toggle')
 const pageNumbersToggle = document.getElementById('page-numbers-toggle')
 const pageJumpSelect = document.getElementById('page-jump')
 
-const VIEW_PAGE_NUMBERS_KEY = 'skryptonite_view_page_numbers'
+const VIEW_PAGE_NUMBERS_KEY = 'sluggo_view_page_numbers'
 
 function isDarkPaperEnabled() {
   return document.body.classList.contains('dark-paper')
@@ -306,7 +309,7 @@ let settings = { ...DEFAULT_SETTINGS }
 
 function loadSettings() {
   try {
-    const raw = localStorage.getItem('skryptonite_settings')
+    const raw = localStorage.getItem('sluggo_settings')
     if (!raw) return
     const parsed = JSON.parse(raw)
     settings = { ...DEFAULT_SETTINGS, ...(parsed || {}) }
@@ -317,7 +320,7 @@ function loadSettings() {
 
 function saveSettings() {
   try {
-    localStorage.setItem('skryptonite_settings', JSON.stringify(settings))
+    localStorage.setItem('sluggo_settings', JSON.stringify(settings))
   } catch (_) {
     // Ignore
   }
@@ -733,8 +736,8 @@ function configureLoadedPages() {
     page.spellcheck = true
 
     // Match createNewPage() behavior so empty pages can be handled consistently.
-    if (!page.__skryptoniteConfigured) {
-      page.__skryptoniteConfigured = true
+    if (!page.__sluggoConfigured) {
+      page.__sluggoConfigured = true
       page.addEventListener('keydown', (e) => {
         if (e.key === 'Backspace' && page.innerText.trim() === '') {
           // Handle merge logic if needed, usually complicated
@@ -1088,6 +1091,7 @@ const menuActions = {
   // Help
   'show-shortcuts': () => shortcutsModal.classList.remove('hidden'),
   'show-tutorial': () => tutorialModal.classList.remove('hidden'),
+  'check-updates': () => checkForUpdates(),
   'docs': () => openModal(docsModal),
   'license': () => openModal(licenseModal),
   'about': () => openModal(aboutModal),
@@ -1100,6 +1104,117 @@ const menuActions = {
 
   // Settings
   'settings': () => openSettings()
+}
+
+// ============================================
+// UPDATE CHECK (best-effort; GitHub-hosted)
+// ============================================
+function normalizeVersion(raw) {
+  return String(raw || '').trim().replace(/^v/i, '')
+}
+
+function compareSemver(a, b) {
+  const pa = normalizeVersion(a).split('.').map(n => parseInt(n, 10))
+  const pb = normalizeVersion(b).split('.').map(n => parseInt(n, 10))
+  if (pa.some(Number.isNaN) || pb.some(Number.isNaN)) return null
+  const len = Math.max(pa.length, pb.length)
+  for (let i = 0; i < len; i++) {
+    const av = pa[i] ?? 0
+    const bv = pb[i] ?? 0
+    if (av > bv) return 1
+    if (av < bv) return -1
+  }
+  return 0
+}
+
+async function fetchJsonWithTimeout(url, { timeoutMs = 6000 } = {}) {
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/vnd.github+json'
+      }
+    })
+    return res
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+async function getLatestVersionFromGitHub() {
+  // Prefer releases if present.
+  const releaseUrl = 'https://api.github.com/repos/jimminiglitch/sluggo/releases/latest'
+  try {
+    const res = await fetchJsonWithTimeout(releaseUrl)
+    if (res.ok) {
+      const data = await res.json()
+      const version = data?.tag_name || data?.name
+      const pageUrl = data?.html_url || 'https://github.com/jimminiglitch/sluggo/releases'
+      if (version) return { version: normalizeVersion(version), url: pageUrl, source: 'release' }
+    }
+    // If the repo has no releases, GitHub returns 404.
+  } catch (_) {
+    // ignore and try tags
+  }
+
+  // Fall back to latest tag.
+  const tagsUrl = 'https://api.github.com/repos/jimminiglitch/sluggo/tags?per_page=1'
+  const res = await fetchJsonWithTimeout(tagsUrl)
+  if (res.ok) {
+    const tags = await res.json()
+    const first = Array.isArray(tags) ? tags[0] : null
+    const version = first?.name
+    const pageUrl = 'https://github.com/jimminiglitch/sluggo/tags'
+    if (version) return { version: normalizeVersion(version), url: pageUrl, source: 'tag' }
+  }
+
+  return { version: null, url: 'https://github.com/jimminiglitch/sluggo', source: 'unknown' }
+}
+
+async function checkForUpdates() {
+  if (!navigator.onLine) {
+    alert('You appear to be offline. Connect to the internet to check for updates.')
+    return
+  }
+
+  const current = normalizeVersion(APP_VERSION)
+  try {
+    const latest = await getLatestVersionFromGitHub()
+    if (!latest.version) {
+      const open = confirm(
+        `Could not determine the latest version automatically.\n\nCurrent: v${current}\n\nOpen SlugGo on GitHub?`
+      )
+      if (open) window.open(latest.url, '_blank', 'noopener')
+      return
+    }
+
+    const cmp = compareSemver(current, latest.version)
+    const latestLabel = `v${latest.version}`
+    const currentLabel = `v${current}`
+
+    if (cmp === null) {
+      const open = confirm(
+        `Latest: ${latestLabel}\nCurrent: ${currentLabel}\n\nOpen releases/tags page?`
+      )
+      if (open) window.open(latest.url, '_blank', 'noopener')
+      return
+    }
+
+    if (cmp < 0) {
+      const open = confirm(
+        `Update available!\n\nLatest: ${latestLabel}\nCurrent: ${currentLabel}\n\nOpen download page?`
+      )
+      if (open) window.open(latest.url, '_blank', 'noopener')
+      return
+    }
+
+    alert(`You're up to date.\n\nCurrent: ${currentLabel}\nLatest: ${latestLabel}`)
+  } catch (err) {
+    console.error('Update check failed:', err)
+    alert('Update check failed. Try again later.')
+  }
 }
 
 // Hover intent state
@@ -1257,7 +1372,7 @@ editorWrapper.addEventListener('scroll', () => {
 // Modal close handlers
 document.getElementById('close-tutorial')?.addEventListener('click', () => {
   closeModal(tutorialModal)
-  localStorage.setItem('skryptonite_tutorial', 'done')
+  localStorage.setItem('sluggo_tutorial', 'done')
 })
 
 document.getElementById('close-shortcuts')?.addEventListener('click', () => {
@@ -2286,12 +2401,12 @@ function saveToStorage() {
         data: t.data
       }))
     }
-    localStorage.setItem('skryptonite_workspace', JSON.stringify(payload))
+    localStorage.setItem('sluggo_workspace', JSON.stringify(payload))
   } catch (err) {
     // Storage quota or serialization error; fall back to saving only the active tab.
     try {
       const tab = getActiveTab()
-      if (tab) localStorage.setItem('skryptonite_workspace', JSON.stringify({ v: 1, activeTabId: tab.id, tabs: [{ id: tab.id, fileName: tab.fileName, data: tab.data }] }))
+      if (tab) localStorage.setItem('sluggo_workspace', JSON.stringify({ v: 1, activeTabId: tab.id, tabs: [{ id: tab.id, fileName: tab.fileName, data: tab.data }] }))
     } catch (_) {
       // Ignore.
     }
@@ -2903,8 +3018,8 @@ function init() {
 
   updateDarkModeToggleUI()
 
-  // Load saved workspace (tabs) or fall back to the legacy single-script key.
-  const savedWorkspace = localStorage.getItem('skryptonite_workspace')
+  // Load saved workspace (tabs).
+  const savedWorkspace = localStorage.getItem('sluggo_workspace')
 
   if (savedWorkspace) {
     try {
@@ -2928,16 +3043,16 @@ function init() {
   }
 
   if (tabs.length === 0) {
-    const legacy = localStorage.getItem('skryptonite_script')
-    if (legacy) {
+    const savedScript = localStorage.getItem('sluggo_script')
+    if (savedScript) {
       try {
-        const data = JSON.parse(legacy)
+        const data = JSON.parse(savedScript)
         const id = createTab({ fileName: `Recovered${PRIMARY_SCRIPT_EXTENSION}`, data, isDirty: false })
         activeTabId = id
       } catch (_) {
-        // Legacy content might be raw HTML.
-        if (legacy.includes('el-')) {
-          const data = { metadata: { title: '', author: '', contact: '', date: '' }, content: `<div class="screenplay-page">${legacy}</div>` }
+        // Content might be raw HTML.
+        if (savedScript.includes('el-')) {
+          const data = { metadata: { title: '', author: '', contact: '', date: '' }, content: `<div class="screenplay-page">${savedScript}</div>` }
           const id = createTab({ fileName: `Recovered${PRIMARY_SCRIPT_EXTENSION}`, data, isDirty: false })
           activeTabId = id
         }
@@ -2968,7 +3083,8 @@ function init() {
   // Autocomplete data is rebuilt above.
 
   // Show tutorial on first visit
-  if (localStorage.getItem('skryptonite_tutorial') !== 'done') {
+  const tutorialDone = localStorage.getItem('sluggo_tutorial')
+  if (tutorialDone !== 'done') {
     tutorialModal.classList.remove('hidden')
   }
 

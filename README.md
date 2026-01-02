@@ -10,14 +10,17 @@ Note: the Vite app lives in the nested folder `./sluggo/`.
 
 - **Screenplay formatting**: Scene headings, action, character, parenthetical, dialogue, transitions.
 - **Standard screenplay typography**: `Courier New` at `12pt` for screenplay pages and print/PDF.
-- **Quick format toolbar**: One-click format buttons + Title Page toggle under the tabs.
+- **Quick format toolbar**: One-click format buttons.
+- **View toggles**: Quick **Title** and **Body** toggles in the top-right.
 - **Pagination**: Pages are laid out as 8.5"×11" and overflow is moved to the next page.
 - **Scene sidebar**: Scene headings are detected and listed for quick navigation.
 - **Tabs**: Work on multiple scripts at once (New/Open create new tabs).
 - **Autosave backup**: Periodic backup to `localStorage`.
+- **History**: Formatting-aware undo/redo plus a History viewer.
 - **Save/Open**:
 	- Uses the **File System Access API** when available (best experience).
 	- Falls back to download/upload when not supported.
+- **Native file type**: Uses `.sluggo` as the default script extension (legacy `.skrypt` still opens).
 - **PWA**: Installable.
 - **Print / Save as PDF**: Print-friendly layout + optional page numbers.
 
@@ -71,7 +74,6 @@ Once enabled, every merge/push to `main` will publish the site.
 
 Under the tabs there’s a quick toolbar for:
 
-- **Title Page** toggle
 - **Scene / Action / Character / Paren / Dialogue / Trans** format buttons
 
 The active format button lights up based on your current line.
@@ -85,6 +87,8 @@ The active format button lights up based on your current line.
 - **Settings**: `Ctrl+,`
 - **Toggle sidebar**: `Ctrl+B`
 - **Dark paper mode**: `Ctrl+D`
+- **History**: `Edit → History...`
+- **Check for updates**: `Help → Check for Updates...`
 - **Format current line**:
 	- `Tab` cycles element type
 	- `Ctrl+1..6` sets a specific type
