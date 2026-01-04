@@ -73,6 +73,13 @@ npm --prefix ./sluggo run dev
 
 When configured, **Share Script…** will create a short link like `https://.../s/<id>` and copy/share that URL. Opening the link loads SlugGo using `?shareId=<id>`.
 
+### GitHub Pages build configuration
+
+If you deploy SlugGo via GitHub Pages (Actions), set this repository secret so the Pages build includes the backend URL:
+
+- Secret name: `VITE_SHARE_SERVICE_BASE`
+- Secret value: `https://sluggo-share.kungfufilla.workers.dev`
+
 ## Deploy (recommended)
 
 This repo includes GitHub Actions workflows:

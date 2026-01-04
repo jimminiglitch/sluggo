@@ -9,5 +9,5 @@ APP_URL = "https://jimminiglitch.github.io/sluggo/"
 
 [[kv_namespaces]]
 binding = "SHARES"
-id = "REPLACE_WITH_PROD_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+id = "a16786dffe7c4b34a964100164cdf5ef"
+preview_id = "3b339c73adc149cfaa97fc953fd669f0"

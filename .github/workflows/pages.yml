@@ -36,6 +36,8 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_SHARE_SERVICE_BASE: ${{ secrets.VITE_SHARE_SERVICE_BASE }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
