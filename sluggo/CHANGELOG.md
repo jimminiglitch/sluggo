@@ -1,3 +1,9 @@
+## [1.0.16](https://github.com/jimminiglitch/sluggo/compare/v1.0.15...v1.0.16) (2026-01-04)
+
+### Features
+
+* implement editor selection memory to enhance formatting actions ([595b3d8](https://github.com/jimminiglitch/sluggo/commit/595b3d8964227b6338702dc4d67e5ef03f4468e5))
+
 ## [1.0.15](https://github.com/jimminiglitch/sluggo/compare/v1.0.14...v1.0.15) (2026-01-04)
 
 ### Features
