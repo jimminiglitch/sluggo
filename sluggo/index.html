@@ -94,6 +94,8 @@
           <button data-action="el-parenthetical"><span>Parenthetical</span><kbd>Ctrl+4</kbd></button>
           <button data-action="el-dialogue"><span>Dialogue</span><kbd>Ctrl+5</kbd></button>
           <button data-action="el-transition"><span>Transition</span><kbd>Ctrl+6</kbd></button>
+          <div class="menu-divider"></div>
+          <button data-action="toggle-dual-dialogue"><span>Toggle Dual Dialogue</span><kbd>Ctrl+Shift+L</kbd></button>
         </div>
       </div>
       <div class="menu-item">
@@ -186,6 +188,7 @@
               <div id="title-page-view" class="screenplay-page title-page-view">
                 <div class="title-page-center">
                   <input type="text" id="input-title" class="title-page-title" placeholder="UNTITLED SCREENPLAY" />
+                  <input type="text" id="input-tagline" class="title-page-tagline" placeholder="Tagline (optional)" />
                   <div class="title-page-by">Written by</div>
                   <textarea id="input-author" class="title-page-author" placeholder="Your Name"></textarea>
                 </div>
@@ -252,6 +255,7 @@
           <div class="shortcut-row"><kbd>Ctrl+4</kbd><span>Parenthetical</span></div>
           <div class="shortcut-row"><kbd>Ctrl+5</kbd><span>Dialogue</span></div>
           <div class="shortcut-row"><kbd>Ctrl+6</kbd><span>Transition</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+Shift+L</kbd><span>Toggle Dual Dialogue</span></div>
         </div>
         <div class="shortcut-section">
           <h3>View</h3>
@@ -298,6 +302,13 @@
           <option value="none">None</option>
           <option value="title">Title on left</option>
         </select>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-print-watermark-draft" />
+          Watermark: DRAFT
+        </label>
       </div>
 
       <div class="settings-row settings-row-stack">
@@ -382,7 +393,7 @@
       </ul>
       <p class="about-tip">Bonus: You <b>can</b> install it for quick access, and it works great offline when installed.</p>
       <p class="about-tip"><strong>Open source (MIT):</strong> <a href="https://github.com/jimminiglitch/sluggo" target="_blank" rel="noopener">github.com/jimminiglitch/sluggo</a></p>
-      <p class="about-version">Version 1.0</p>
+      <p class="about-version">Version <span id="about-version">0.0.0</span></p>
       <hr class="about-divider">
       <p><strong>If this saved you from yet another SaaS paywall:</strong></p>
       <ul class="about-list about-support">

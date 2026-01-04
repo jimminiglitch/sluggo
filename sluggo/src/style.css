@@ -621,6 +621,11 @@ body {
   word-wrap: break-word;
 }
 
+/* Print-only overlays (inserted dynamically) */
+.page-watermark {
+  display: none;
+}
+
 /* ============================================
    SCREENPLAY ELEMENT STYLES
    ============================================ */
@@ -706,6 +711,19 @@ body {
   outline: none;
   color: inherit;
   margin-bottom: 16pt;
+}
+
+.title-page-tagline {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.2);
+  font-family: inherit;
+  font-size: 12pt;
+  text-align: center;
+  width: 70%;
+  outline: none;
+  color: inherit;
+  margin: 0 auto 18pt auto;
 }
 
 .title-page-by {
@@ -1280,6 +1298,66 @@ body {
     font-family: var(--font-mono);
     font-size: 12pt;
     color: black;
+  }
+
+  /* DRAFT watermark (optional) */
+  .page-watermark {
+    display: none;
+  }
+
+  body.print-watermark-draft .screenplay-page:not(.title-page-view) > .page-watermark {
+    display: block;
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 96pt;
+    letter-spacing: 0.08em;
+    color: black;
+    opacity: 0.08;
+    transform: rotate(-18deg);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Keep page content above watermark */
+  body.print-watermark-draft .screenplay-page:not(.title-page-view) > div:not(.page-watermark),
+  body.print-watermark-draft .screenplay-page:not(.title-page-view) > .dual-dialogue {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Dual dialogue layout (print only; injected during print) */
+  .dual-dialogue {
+    display: flex;
+    gap: 0.25in;
+    margin-bottom: 12pt;
+  }
+
+  .dual-dialogue .dual-col {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .dual-dialogue .el-character {
+    padding-left: 1.1in;
+  }
+
+  .dual-dialogue .el-parenthetical {
+    padding-left: 0.8in;
+    padding-right: 0.8in;
+  }
+
+  .dual-dialogue .el-dialogue {
+    padding-left: 0.6in;
+    padding-right: 0.6in;
+    margin-bottom: 12pt;
+  }
+
+  /* Hide optional tagline if blank (and don't print its placeholder) */
+  #input-tagline:placeholder-shown {
+    display: none !important;
   }
 }
 

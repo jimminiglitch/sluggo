@@ -9,6 +9,17 @@ import './style.css'
 // eslint-disable-next-line no-undef
 const APP_VERSION = (typeof __SLUGGO_APP_VERSION__ === 'string' && __SLUGGO_APP_VERSION__) ? __SLUGGO_APP_VERSION__ : '0.0.0'
 
+function normalizeVersion(raw) {
+  return String(raw || '')
+    .trim()
+    .replace(/^v/i, '')
+    // Drop semver pre-release/build metadata when comparing.
+    .split(/[+-]/)[0]
+}
+
+const aboutVersionEl = document.getElementById('about-version')
+if (aboutVersionEl) aboutVersionEl.textContent = normalizeVersion(APP_VERSION)
+
 let saveStatusFlashTimeout = null
 
 function flashSaveStatus(message, { ms = 2200, accent = true } = {}) {
@@ -625,6 +636,7 @@ const settingsEls = {
   pageNumbers: document.getElementById('setting-page-numbers'),
   pageNumbersStart2: document.getElementById('setting-page-numbers-start-2'),
   printHeaderStyle: document.getElementById('setting-print-header-style'),
+  printWatermarkDraft: document.getElementById('setting-print-watermark-draft'),
   marginPreset: document.getElementById('setting-margin-preset'),
   sceneIntExtQuickPick: document.getElementById('setting-scene-intext-quickpick'),
   parentheticalAutoParens: document.getElementById('setting-parenthetical-auto-parens')
@@ -726,6 +738,7 @@ const DEFAULT_SETTINGS = {
   showPageNumbersInPrint: true,
   pageNumbersStartOnPage2: true,
   printHeaderStyle: 'none',
+  printWatermarkDraft: false,
   marginPreset: 'standard',
   sceneHeadingsIntExtQuickPick: true,
   parentheticalsAutoParens: true
@@ -757,6 +770,7 @@ function applySettingsToUI() {
   settingsEls.pageNumbers && (settingsEls.pageNumbers.checked = !!settings.showPageNumbersInPrint)
   settingsEls.pageNumbersStart2 && (settingsEls.pageNumbersStart2.checked = !!settings.pageNumbersStartOnPage2)
   settingsEls.printHeaderStyle && (settingsEls.printHeaderStyle.value = settings.printHeaderStyle || 'none')
+  settingsEls.printWatermarkDraft && (settingsEls.printWatermarkDraft.checked = !!settings.printWatermarkDraft)
   settingsEls.marginPreset && (settingsEls.marginPreset.value = settings.marginPreset || 'standard')
   settingsEls.sceneIntExtQuickPick && (settingsEls.sceneIntExtQuickPick.checked = !!settings.sceneHeadingsIntExtQuickPick)
   settingsEls.parentheticalAutoParens && (settingsEls.parentheticalAutoParens.checked = !!settings.parentheticalsAutoParens)
@@ -764,9 +778,196 @@ function applySettingsToUI() {
   document.body.classList.toggle('print-include-title-page', !!settings.includeTitlePageInPrint)
   document.body.classList.toggle('print-page-numbers', !!settings.showPageNumbersInPrint)
   document.body.classList.toggle('print-header-title', (settings.printHeaderStyle || 'none') === 'title')
+  document.body.classList.toggle('print-watermark-draft', !!settings.printWatermarkDraft)
 
   applyMarginPreset(settings.marginPreset || 'standard')
   updatePageNumberAttributes()
+}
+
+function ensurePrintWatermarkElements() {
+  // Insert overlays only for the print session so they never affect editing/pagination.
+  const created = []
+  document.querySelectorAll('.screenplay-page:not(.title-page-view)').forEach((page) => {
+    if (page.querySelector(':scope > .page-watermark')) return
+    const el = document.createElement('div')
+    el.className = 'page-watermark'
+    el.textContent = 'DRAFT'
+    page.appendChild(el)
+    created.push(el)
+  })
+
+  return () => {
+    created.forEach(el => el.remove())
+  }
+}
+
+function getDialogueBlockFromLine(line) {
+  if (!line) return null
+  const page = line.parentElement
+  if (!page?.classList?.contains('screenplay-page') || page.classList.contains('title-page-view')) return null
+
+  const isDialogueish = (el) => !!el?.classList && (el.classList.contains('el-character') || el.classList.contains('el-parenthetical') || el.classList.contains('el-dialogue'))
+  const isCharacter = (el) => !!el?.classList?.contains('el-character')
+
+  // Find the start character line for this block.
+  let start = line
+  while (start && start.previousElementSibling && isDialogueish(start.previousElementSibling) && !isCharacter(start)) {
+    start = start.previousElementSibling
+  }
+  // Walk up until we hit a character line.
+  while (start && !isCharacter(start) && start.previousElementSibling) {
+    start = start.previousElementSibling
+  }
+  if (!isCharacter(start)) {
+    // If caret is already on a character line, start is correct. Otherwise, no block.
+    if (!isCharacter(line)) return null
+    start = line
+  }
+
+  // Collect lines until the next character or a non-dialogue element.
+  const lines = []
+  let cursor = start
+  while (cursor && isDialogueish(cursor)) {
+    lines.push(cursor)
+    cursor = cursor.nextElementSibling
+  }
+
+  // Must contain at least one dialogue line to be meaningful.
+  if (!lines.some(el => el.classList.contains('el-dialogue'))) return null
+  return { start, end: lines[lines.length - 1], lines }
+}
+
+function getNextDialogueBlock(block) {
+  if (!block?.end) return null
+  let cursor = block.end.nextElementSibling
+  while (cursor) {
+    // Skip purely blank action lines.
+    const isBlank = (cursor.textContent || '').trim() === ''
+    if (cursor.classList?.contains('el-action') && isBlank) {
+      cursor = cursor.nextElementSibling
+      continue
+    }
+    break
+  }
+  if (!cursor) return null
+  // Next block must start at character.
+  if (!cursor.classList?.contains('el-character')) return null
+  return getDialogueBlockFromLine(cursor)
+}
+
+function clearDualDialogueAttrs(block) {
+  if (!block?.lines?.length) return
+  block.lines.forEach((el) => {
+    delete el.dataset.dualGroup
+    delete el.dataset.dualSide
+  })
+}
+
+function applyDualDialogueAttrs(block, { groupId, side }) {
+  if (!block?.lines?.length) return
+  block.lines.forEach((el) => {
+    el.dataset.dualGroup = groupId
+    el.dataset.dualSide = side
+  })
+}
+
+function toggleDualDialogueAtCursor() {
+  if (isTitlePageCaretActive() || !isBodyVisible()) return
+
+  const line = getCurrentLine() || ensureLineExists()
+  if (!line) return
+
+  const a = getDialogueBlockFromLine(line)
+  if (!a) {
+    flashSaveStatus('Dual dialogue: place cursor in dialogue')
+    return
+  }
+  const b = getNextDialogueBlock(a)
+  if (!b) {
+    flashSaveStatus('Dual dialogue: needs two adjacent dialogue blocks')
+    return
+  }
+
+  recordHistoryCheckpoint({ inputType: 'format' })
+
+  const existingGroup = a.lines[0]?.dataset?.dualGroup
+  const isAlreadyDual = existingGroup && b.lines[0]?.dataset?.dualGroup === existingGroup
+
+  if (isAlreadyDual) {
+    clearDualDialogueAttrs(a)
+    clearDualDialogueAttrs(b)
+    flashSaveStatus('Dual dialogue: Off', { accent: false })
+  } else {
+    const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    applyDualDialogueAttrs(a, { groupId, side: 'left' })
+    applyDualDialogueAttrs(b, { groupId, side: 'right' })
+    flashSaveStatus('Dual dialogue: On', { accent: false })
+  }
+
+  markDirty()
+}
+
+function prepareDualDialogueForPrint() {
+  const wrapped = []
+
+  const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
+  pages.forEach((page) => {
+    const children = Array.from(page.children).filter(el => el.tagName === 'DIV' && !el.classList.contains('page-watermark'))
+
+    for (let i = 0; i < children.length; i++) {
+      const el = children[i]
+      const group = el?.dataset?.dualGroup
+      if (!group) continue
+
+      // Collect consecutive nodes for this group.
+      const nodesInOrder = []
+      const left = []
+      const right = []
+
+      let j = i
+      while (j < children.length && children[j]?.dataset?.dualGroup === group) {
+        const node = children[j]
+        nodesInOrder.push(node)
+        if (node.dataset.dualSide === 'right') right.push(node)
+        else left.push(node)
+        j++
+      }
+
+      if (nodesInOrder.length > 0 && (left.length > 0 || right.length > 0)) {
+        const wrapper = document.createElement('div')
+        wrapper.className = 'dual-dialogue'
+        wrapper.dataset.dualGroup = group
+
+        const leftCol = document.createElement('div')
+        leftCol.className = 'dual-col dual-left'
+        const rightCol = document.createElement('div')
+        rightCol.className = 'dual-col dual-right'
+
+        wrapper.appendChild(leftCol)
+        wrapper.appendChild(rightCol)
+
+        page.insertBefore(wrapper, nodesInOrder[0])
+        left.forEach(n => leftCol.appendChild(n))
+        right.forEach(n => rightCol.appendChild(n))
+
+        wrapped.push({ page, wrapper, nodesInOrder })
+      }
+
+      // Skip past what we consumed.
+      i = j - 1
+    }
+  })
+
+  const restore = () => {
+    wrapped.forEach(({ wrapper, nodesInOrder }) => {
+      const page = wrapper.parentElement
+      if (!page) return
+      nodesInOrder.forEach((n) => page.insertBefore(n, wrapper))
+      wrapper.remove()
+    })
+  }
+
+  return restore
 }
 
 function applyMarginPreset(preset) {
@@ -792,15 +993,14 @@ function closeSettings() {
 
 function printScript() {
   applySettingsToUI()
+  const restoreWatermarks = ensurePrintWatermarkElements()
   document.querySelectorAll('.modal:not(.hidden)').forEach(m => closeModal(m))
 
-  // Printing should be optional: print what the user has toggled visible.
-  // Title page visibility in print is controlled via body.print-include-title-page.
-  const prevPrintIncludeTitle = document.body.classList.contains('print-include-title-page')
-  document.body.classList.toggle('print-include-title-page', isTitlePageVisible())
+  const restoreDual = prepareDualDialogueForPrint()
 
   const restore = () => {
-    document.body.classList.toggle('print-include-title-page', prevPrintIncludeTitle)
+    restoreDual?.()
+    restoreWatermarks?.()
     window.removeEventListener('afterprint', restore)
   }
   window.addEventListener('afterprint', restore)
@@ -1501,6 +1701,7 @@ const menuActions = {
   'el-parenthetical': () => applyElementToCurrentLine('parenthetical'),
   'el-dialogue': () => applyElementToCurrentLine('dialogue'),
   'el-transition': () => applyElementToCurrentLine('transition'),
+  'toggle-dual-dialogue': () => toggleDualDialogueAtCursor(),
 
   // Help
   'show-shortcuts': () => shortcutsModal.classList.remove('hidden'),
@@ -1526,14 +1727,6 @@ const menuActions = {
 // ============================================
 const GITHUB_REPO = 'jimminiglitch/sluggo'
 const GITHUB_REPO_URL = `https://github.com/${GITHUB_REPO}`
-
-function normalizeVersion(raw) {
-  return String(raw || '')
-    .trim()
-    .replace(/^v/i, '')
-    // Drop semver pre-release/build metadata when comparing.
-    .split(/[+-]/)[0]
-}
 
 function compareSemver(a, b) {
   const pa = normalizeVersion(a).split('.').map(n => parseInt(n, 10))
@@ -1902,6 +2095,12 @@ settingsEls.printHeaderStyle?.addEventListener('change', () => {
   saveSettings()
 })
 
+settingsEls.printWatermarkDraft?.addEventListener('change', () => {
+  settings.printWatermarkDraft = !!settingsEls.printWatermarkDraft.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
 settingsEls.marginPreset?.addEventListener('change', () => {
   settings.marginPreset = settingsEls.marginPreset.value || 'standard'
   applySettingsToUI()
@@ -2006,6 +2205,12 @@ document.addEventListener('keydown', (e) => {
       case 'd':
         e.preventDefault()
         menuActions['toggle-dark-mode']()
+        break
+      case 'l':
+        if (!shift) break
+        e.preventDefault()
+        menuActions['toggle-dual-dialogue']()
+        break
 
 // ============================================
 // FIND / REPLACE
@@ -3178,6 +3383,7 @@ function parsePlainTextToScriptData(text) {
   return {
     metadata: {
       title: '',
+      tagline: '',
       author: '',
       contact: '',
       date: '',
@@ -3196,6 +3402,7 @@ function getScriptData() {
   return {
     metadata: {
       title: readValue('input-title'),
+      tagline: readValue('input-tagline'),
       author: readValue('input-author'),
       contact: readValue('input-contact'),
       date: readValue('input-date'),
@@ -3262,6 +3469,8 @@ function loadScriptData(data) {
   if (data.metadata) {
     const titleEl = document.getElementById('input-title')
     if (titleEl) titleEl.value = data.metadata.title || ''
+    const taglineEl = document.getElementById('input-tagline')
+    if (taglineEl) taglineEl.value = data.metadata.tagline || ''
     const authorEl = document.getElementById('input-author')
     if (authorEl) authorEl.value = data.metadata.author || ''
     const contactEl = document.getElementById('input-contact')
@@ -3443,6 +3652,7 @@ function exportFDX() {
   })
 
   const title = (document.getElementById('input-title')?.value || '').trim()
+  const tagline = (document.getElementById('input-tagline')?.value || '').trim()
   const author = (document.getElementById('input-author')?.value || '').trim()
   const contact = (document.getElementById('input-contact')?.value || '').trim()
   const date = (document.getElementById('input-date')?.value || '').trim()
@@ -3452,6 +3662,7 @@ function exportFDX() {
 
   const titlePageParas = []
   if (title) titlePageParas.push({ type: 'Title', text: title })
+  if (tagline) titlePageParas.push({ type: 'Source', text: tagline })
   titlePageParas.push({ type: 'Credit', text: 'Written by' })
   authorLines.forEach(line => titlePageParas.push({ type: 'Author', text: line }))
   if (contact) {
