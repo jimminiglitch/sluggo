@@ -2565,6 +2565,12 @@ function updateQuickBarActiveState() {
   // If we're editing the title page (native inputs) or body is hidden, don't highlight a screenplay line format.
   if (caretInTitle || bodyHidden) return
 
+  // Dual dialogue button state (cursor inside a dual group)
+  const currentLine = getCurrentLine()
+  const inDual = !!(currentLine?.dataset?.dualGroup)
+  const dualBtn = quickBar.querySelector('[data-action="toggle-dual-dialogue"]')
+  if (dualBtn) dualBtn.classList.toggle('is-active', inDual)
+
   const activeElement = getActiveElementFromCurrentLine() || currentElement
   const action = `el-${activeElement}`
   const activeBtn = quickBar.querySelector(`[data-action="${CSS.escape(action)}"]`)
