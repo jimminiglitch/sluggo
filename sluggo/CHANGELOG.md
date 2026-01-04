@@ -1,3 +1,9 @@
+## [1.0.18](https://github.com/jimminiglitch/sluggo/compare/v1.0.17...v1.0.18) (2026-01-04)
+
+### Features
+
+* implement smart default element inference for blank lines in screenplay editor ([9975e18](https://github.com/jimminiglitch/sluggo/commit/9975e1834ee192dccb2327213c358ad85a6c4082))
+
 ## [1.0.17](https://github.com/jimminiglitch/sluggo/compare/v1.0.16...v1.0.17) (2026-01-04)
 
 ### Features
