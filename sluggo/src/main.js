@@ -9,6 +9,95 @@ import './style.css'
 // eslint-disable-next-line no-undef
 const APP_VERSION = (typeof __SLUGGO_APP_VERSION__ === 'string' && __SLUGGO_APP_VERSION__) ? __SLUGGO_APP_VERSION__ : '0.0.0'
 
+let saveStatusFlashTimeout = null
+
+function flashSaveStatus(message, { ms = 2200, accent = true } = {}) {
+  if (!saveStatusDisplay) return
+
+  if (saveStatusFlashTimeout) {
+    clearTimeout(saveStatusFlashTimeout)
+    saveStatusFlashTimeout = null
+  }
+
+  saveStatusDisplay.textContent = String(message || '')
+  saveStatusDisplay.classList.toggle('saving', !!accent)
+
+  saveStatusFlashTimeout = setTimeout(() => {
+    saveStatusFlashTimeout = null
+    updateSaveStatusUI()
+  }, ms)
+}
+
+function getShareUrl() {
+  // Prefer canonical so sharing always points at the deployed app.
+  const canonical = document.querySelector('link[rel="canonical"]')?.getAttribute('href')
+  if (canonical) return canonical
+
+  // Fall back to the app base URL.
+  try {
+    return new URL(import.meta.env.BASE_URL || '/', window.location.origin).href
+  } catch (_) {
+    return window.location.href
+  }
+}
+
+async function copyToClipboard(text) {
+  const value = String(text || '')
+  if (!value) return false
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return true
+    }
+  } catch (_) {
+    // Fall through to execCommand.
+  }
+
+  try {
+    const el = document.createElement('textarea')
+    el.value = value
+    el.setAttribute('readonly', '')
+    el.style.position = 'fixed'
+    el.style.left = '-9999px'
+    document.body.appendChild(el)
+    el.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(el)
+    return !!ok
+  } catch (_) {
+    return false
+  }
+}
+
+async function shareApp() {
+  const url = getShareUrl()
+
+  // Best experience on mobile (iOS/Android): native share sheet.
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: 'SlugGo',
+        text: 'Fast, no-bloat screenwriting in the browser.',
+        url
+      })
+      flashSaveStatus('Shared')
+      return
+    }
+  } catch (_) {
+    // User can cancel share; treat as no-op.
+    return
+  }
+
+  const copied = await copyToClipboard(url)
+  if (copied) {
+    flashSaveStatus('Link copied')
+  } else {
+    // Last-resort fallback.
+    window.prompt('Copy link:', url)
+  }
+}
+
 // DOM Elements
 const editor = document.getElementById('editor')
 const sceneList = document.getElementById('scene-list')
@@ -1109,6 +1198,7 @@ const menuActions = {
   // Help
   'show-shortcuts': () => shortcutsModal.classList.remove('hidden'),
   'show-tutorial': () => tutorialModal.classList.remove('hidden'),
+  'share-app': () => shareApp(),
   'check-updates': () => checkForUpdates(),
   'docs': () => openModal(docsModal),
   'license': () => openModal(licenseModal),

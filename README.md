@@ -68,6 +68,21 @@ To enable Pages:
 
 Once enabled, every merge/push to `main` will publish the site.
 
+Shareable link (GitHub Pages):
+
+- https://jimminiglitch.github.io/sluggo/
+
+That link is just the hosted app — people don’t need a GitHub account or to “use GitHub” to open it.
+
+If you’re on a fork, the URL is:
+
+- `https://<your-github-username>.github.io/<repo-name>/`
+
+Want a “cleaner” link for socials?
+
+- **Custom domain**: Point a domain you own to GitHub Pages (GitHub: **Settings → Pages → Custom domain**). Add a `CNAME` file at the site root (for Vite, put it in `sluggo/public/CNAME` so it gets copied into the build).
+- **Short link**: Use any URL shortener to make a memorable link that redirects to the Pages URL.
+
 ## Using the editor
 
 ### Quick toolbar
