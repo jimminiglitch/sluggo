@@ -1,3 +1,9 @@
+## [1.0.14](https://github.com/jimminiglitch/sluggo/compare/v1.0.13...v1.0.14) (2026-01-04)
+
+### Features
+
+* add dual dialogue feature and optional tagline input; implement draft watermark for print ([9e2c06c](https://github.com/jimminiglitch/sluggo/commit/9e2c06c02749bba64b1f07c2350d1ff4e965fe42))
+
 ## [1.0.13](https://github.com/jimminiglitch/sluggo/compare/v1.0.12...v1.0.13) (2026-01-04)
 
 ### Bug Fixes
