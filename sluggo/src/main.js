@@ -874,6 +874,86 @@ function getDialogueBlockFromLine(line) {
   return { start, end: lines[lines.length - 1], lines }
 }
 
+function getLineFromNode(node) {
+  if (!node) return null
+  let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
+  while (el && el !== document.body) {
+    const parent = el.parentElement
+    if (parent?.classList?.contains?.('screenplay-page')) return el
+    el = parent
+  }
+  return null
+}
+
+function compareDomOrder(a, b) {
+  if (a === b) return 0
+  if (!a || !b) return 0
+  const pos = a.compareDocumentPosition(b)
+  if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1
+  if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1
+  return 0
+}
+
+function clearDualGroupId(groupId, scope) {
+  if (!groupId || !scope?.querySelectorAll) return
+  const sel = `[data-dual-group="${CSS.escape(groupId)}"]`
+  scope.querySelectorAll(sel).forEach((el) => {
+    delete el.dataset.dualGroup
+    delete el.dataset.dualSide
+  })
+}
+
+function getSelectedDialogueBlocks() {
+  const selection = window.getSelection()
+  if (!selection?.rangeCount) return null
+  if (selection.isCollapsed) return null
+
+  // Use the actual range so backwards selections behave correctly.
+  let range = null
+  try {
+    range = selection.getRangeAt(0)
+  } catch (_) {
+    return null
+  }
+  if (!range) return null
+
+  const startLine = getLineFromNode(range.startContainer)
+  const endLine = getLineFromNode(range.endContainer)
+  if (!startLine || !endLine) return null
+
+  const page = startLine.parentElement
+  if (!page || page !== endLine.parentElement) return null
+
+  // Walk from earliest to latest line within the same page.
+  const forward = compareDomOrder(startLine, endLine) <= 0
+  const first = forward ? startLine : endLine
+  const last = forward ? endLine : startLine
+
+  const selectedLines = []
+  let cursor = first
+  while (cursor) {
+    selectedLines.push(cursor)
+    if (cursor === last) break
+    cursor = cursor.nextElementSibling
+  }
+  if (selectedLines.length === 0) return null
+
+  // Determine which distinct dialogue blocks intersect the selection.
+  const blocksByStart = new Map()
+  for (const line of selectedLines) {
+    const block = getDialogueBlockFromLine(line)
+    if (!block?.start) continue
+    blocksByStart.set(block.start, block)
+    if (blocksByStart.size > 2) return null
+  }
+
+  const blocks = Array.from(blocksByStart.values())
+  if (blocks.length !== 2) return null
+
+  blocks.sort((a, b) => compareDomOrder(a.start, b.start))
+  return blocks
+}
+
 function getNextDialogueBlock(block) {
   if (!block?.end) return null
   let cursor = block.end.nextElementSibling
@@ -889,6 +969,28 @@ function getNextDialogueBlock(block) {
   if (!cursor) return null
   // Next block must start at character.
   if (!cursor.classList?.contains('el-character')) return null
+  return getDialogueBlockFromLine(cursor)
+}
+
+function getPrevDialogueBlock(block) {
+  if (!block?.start) return null
+  let cursor = block.start.previousElementSibling
+  while (cursor) {
+    // Skip purely blank action lines.
+    const isBlank = (cursor.textContent || '').trim() === ''
+    if (cursor.classList?.contains('el-action') && isBlank) {
+      cursor = cursor.previousElementSibling
+      continue
+    }
+    break
+  }
+  if (!cursor) return null
+
+  // Walk backward until we find the previous character line.
+  while (cursor && !cursor.classList?.contains('el-character')) {
+    cursor = cursor.previousElementSibling
+  }
+  if (!cursor) return null
   return getDialogueBlockFromLine(cursor)
 }
 
@@ -914,35 +1016,81 @@ function toggleDualDialogueAtCursor() {
   // Menu clicks move focus away from the editor; restore last known caret.
   restoreEditorSelectionIfNeeded()
 
+  // Selection has priority: if exactly two dialogue blocks are selected, toggle those.
+  const selectedBlocks = getSelectedDialogueBlocks()
+  if (selectedBlocks) {
+    const [left, right] = selectedBlocks
+    const page = left.start?.parentElement
+    if (!page) return
+
+    recordHistoryCheckpoint({ inputType: 'format' })
+
+    const leftGroup = left.lines?.[0]?.dataset?.dualGroup
+    const rightGroup = right.lines?.[0]?.dataset?.dualGroup
+    const isAlreadyDualPair = leftGroup && rightGroup && leftGroup === rightGroup
+
+    if (isAlreadyDualPair) {
+      clearDualGroupId(leftGroup, page)
+      flashSaveStatus('Dual dialogue: Off', { accent: false })
+      markDirty()
+      return
+    }
+
+    // If either side is already part of some dual group, clear those groups first.
+    if (leftGroup) clearDualGroupId(leftGroup, page)
+    if (rightGroup && rightGroup !== leftGroup) clearDualGroupId(rightGroup, page)
+
+    const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    applyDualDialogueAttrs(left, { groupId, side: 'left' })
+    applyDualDialogueAttrs(right, { groupId, side: 'right' })
+    flashSaveStatus('Dual dialogue: On', { accent: false })
+    markDirty()
+    return
+  }
+
   const line = getCurrentLine() || ensureLineExists()
   if (!line) return
+
+  // If we're already inside a dual group, toggling should turn it off.
+  const activeGroup = line?.dataset?.dualGroup
+  if (activeGroup) {
+    recordHistoryCheckpoint({ inputType: 'format' })
+    const page = getCurrentPage()
+    const scope = (page && page.classList?.contains('screenplay-page')) ? page : editor
+    clearDualGroupId(activeGroup, scope)
+    flashSaveStatus('Dual dialogue: Off', { accent: false })
+    markDirty()
+    return
+  }
 
   const a = getDialogueBlockFromLine(line)
   if (!a) {
     flashSaveStatus('Dual dialogue: place cursor in dialogue')
     return
   }
-  const b = getNextDialogueBlock(a)
-  if (!b) {
-    flashSaveStatus('Dual dialogue: needs two adjacent dialogue blocks')
+
+  // Prefer pairing current block with the next one; if none, try previous+current.
+  let left = a
+  let right = getNextDialogueBlock(a)
+  if (!right) {
+    const prev = getPrevDialogueBlock(a)
+    if (prev) {
+      left = prev
+      right = a
+    }
+  }
+
+  if (!right) {
+    flashSaveStatus('Dual dialogue: needs two nearby dialogue blocks')
     return
   }
 
   recordHistoryCheckpoint({ inputType: 'format' })
 
-  const existingGroup = a.lines[0]?.dataset?.dualGroup
-  const isAlreadyDual = existingGroup && b.lines[0]?.dataset?.dualGroup === existingGroup
-
-  if (isAlreadyDual) {
-    clearDualDialogueAttrs(a)
-    clearDualDialogueAttrs(b)
-    flashSaveStatus('Dual dialogue: Off', { accent: false })
-  } else {
-    const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
-    applyDualDialogueAttrs(a, { groupId, side: 'left' })
-    applyDualDialogueAttrs(b, { groupId, side: 'right' })
-    flashSaveStatus('Dual dialogue: On', { accent: false })
-  }
+  const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
+  applyDualDialogueAttrs(left, { groupId, side: 'left' })
+  applyDualDialogueAttrs(right, { groupId, side: 'right' })
+  flashSaveStatus('Dual dialogue: On', { accent: false })
 
   markDirty()
 }
