@@ -3366,6 +3366,21 @@ function handleEnter(e) {
   // Check if we pushed to new page
   checkPageOverflow()
 
+  // If pagination moved the inserted line to another page, the caret can end up
+  // off-screen. Keep the newly inserted line visible so repeated Enter presses
+  // can create multiple blank lines naturally.
+  try {
+    const r = newPara.getBoundingClientRect()
+    const margin = 48
+    const offscreenAbove = r.top < 0
+    const offscreenBelow = r.bottom > (window.innerHeight - margin)
+    if (offscreenAbove || offscreenBelow) {
+      newPara.scrollIntoView({ block: 'nearest' })
+    }
+  } catch (_) {
+    // Ignore
+  }
+
   // If new element is on next page, focus logic is handled by browser mostly
   // But we might need to scroll
 
