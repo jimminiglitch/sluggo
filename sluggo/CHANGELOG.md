@@ -1,3 +1,9 @@
+## [1.0.20](https://github.com/jimminiglitch/sluggo/compare/v1.0.19...v1.0.20) (2026-01-04)
+
+### Features
+
+* ensure newly inserted lines remain visible after pagination ([69e4242](https://github.com/jimminiglitch/sluggo/commit/69e424284979ed0e6aaa583a2568361dc7ef1169))
+
 ## [1.0.19](https://github.com/jimminiglitch/sluggo/compare/v1.0.18...v1.0.19) (2026-01-04)
 
 ### Features
