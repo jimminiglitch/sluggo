@@ -1,3 +1,9 @@
+## [1.0.17](https://github.com/jimminiglitch/sluggo/compare/v1.0.16...v1.0.17) (2026-01-04)
+
+### Features
+
+* enhance dual dialogue functionality with improved selection handling ([481d597](https://github.com/jimminiglitch/sluggo/commit/481d5971942b45ab72df838d60a13d728e15cab1))
+
 ## [1.0.16](https://github.com/jimminiglitch/sluggo/compare/v1.0.15...v1.0.16) (2026-01-04)
 
 ### Features
