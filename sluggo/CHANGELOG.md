@@ -1,3 +1,9 @@
+## [1.0.8](https://github.com/jimminiglitch/sluggo/compare/v1.0.7...v1.0.8) (2026-01-04)
+
+### Features
+
+* enhance sharing functionality with email snippet format ([1987cd7](https://github.com/jimminiglitch/sluggo/commit/1987cd74f6e1751c9a33cc22c90024732f78bb1b))
+
 ## [1.0.7](https://github.com/jimminiglitch/sluggo/compare/v1.0.6...v1.0.7) (2026-01-04)
 
 ### Features
