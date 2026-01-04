@@ -435,6 +435,43 @@ const sidebar = document.getElementById('sidebar')
 const titlePageView = document.getElementById('title-page-view')
 const tabBar = document.getElementById('tab-bar')
 
+// When the user clicks the menu bar, the browser selection moves out of the editor.
+// Keep the last known editor selection so format actions can still apply.
+let lastEditorSelectionRange = null
+
+function isNodeInsideEditor(node) {
+  if (!node || !editor) return false
+  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
+  return !!(el && editor.contains(el))
+}
+
+function rememberEditorSelection() {
+  const selection = window.getSelection()
+  if (!selection?.rangeCount) return
+  if (!isNodeInsideEditor(selection.anchorNode)) return
+  // Title page uses native inputs; we only track selection in the body pages.
+  if (isTitlePageCaretActive()) return
+  try {
+    lastEditorSelectionRange = selection.getRangeAt(0).cloneRange()
+  } catch (_) {
+    // Ignore
+  }
+}
+
+function restoreEditorSelectionIfNeeded() {
+  const selection = window.getSelection()
+  if (selection?.rangeCount && isNodeInsideEditor(selection.anchorNode)) return true
+  if (!lastEditorSelectionRange) return false
+
+  try {
+    selection.removeAllRanges()
+    selection.addRange(lastEditorSelectionRange)
+    return true
+  } catch (_) {
+    return false
+  }
+}
+
 const SIDEBAR_HIDDEN_KEY = 'sluggo_sidebar_hidden'
 
 function isSidebarHidden() {
@@ -873,6 +910,9 @@ function applyDualDialogueAttrs(block, { groupId, side }) {
 
 function toggleDualDialogueAtCursor() {
   if (isTitlePageCaretActive() || !isBodyVisible()) return
+
+  // Menu clicks move focus away from the editor; restore last known caret.
+  restoreEditorSelectionIfNeeded()
 
   const line = getCurrentLine() || ensureLineExists()
   if (!line) return
@@ -1998,8 +2038,13 @@ document.addEventListener('click', () => {
 
 // Keep quick format buttons in sync with caret movement.
 document.addEventListener('selectionchange', () => {
+  rememberEditorSelection()
   scheduleQuickBarUpdate()
 })
+
+// Extra coverage: on some browsers, selectionchange doesn’t fire for every tap/click.
+editor?.addEventListener('mouseup', () => rememberEditorSelection())
+editor?.addEventListener('keyup', () => rememberEditorSelection())
 
 darkModeToggleBtn?.addEventListener('click', () => {
   toggleDarkPaperMode()
