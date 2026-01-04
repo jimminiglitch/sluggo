@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/jimminiglitch/sluggo/compare/v1.0.1...v1.0.2) (2026-01-04)
+
+### Features
+
+* enhance mobile responsiveness by adjusting menu overflow and z-index ([c609183](https://github.com/jimminiglitch/sluggo/commit/c609183c53ebf7eded158e98af929df0dd1338b2))
+
 ## [1.0.1](https://github.com/jimminiglitch/sluggo/compare/v1.0.0...v1.0.1) (2026-01-04)
 
 ### Features
