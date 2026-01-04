@@ -140,6 +140,19 @@ function formatAuthorListForTitle(lines) {
   return `${items.slice(0, -1).join(', ')} & ${items[items.length - 1]}`
 }
 
+function buildEmailShareSnippet({ title, author, url }) {
+  const t = String(title || '').trim()
+  const a = String(author || '').trim()
+  const u = String(url || '').trim()
+
+  const lines = []
+  if (t) lines.push(t)
+  if (a) lines.push(`by ${a}`)
+  lines.push('')
+  lines.push(u)
+  return lines.filter((_, i) => i !== lines.length - 1 || u).join('\n')
+}
+
 async function shareCurrentScript() {
   persistActiveTabState()
   const tab = getActiveTab()
@@ -178,12 +191,13 @@ async function shareCurrentScript() {
 
     if (backend?.url) {
       const shareUrl = backend.url
-      const shareText = `${name}\n${shareUrl}`
+      const shareText = buildEmailShareSnippet({ title: name, author: authorLabel, url: shareUrl })
 
       // Try share sheet if available (may be blocked on some platforms after async work).
       if (navigator.share) {
         try {
-          await navigator.share({ title: name, text: name, url: shareUrl })
+          const shareBody = authorLabel ? `${name}\nby ${authorLabel}` : name
+          await navigator.share({ title: name, text: shareBody, url: shareUrl })
           flashSaveStatus('Shared')
           return
         } catch (_) {
@@ -235,7 +249,7 @@ async function shareCurrentScript() {
   // Clipboard fallback: allow async compression to keep URLs shorter.
   const encoded = await gzipStringToBase64Url(JSON.stringify(payload))
   const url = `${getBaseShareUrl()}#share=${encoded}`
-  const shareText = `${name}\n${url}`
+  const shareText = buildEmailShareSnippet({ title: name, author: authorLabel, url })
 
   // Extremely long URLs won’t paste reliably everywhere; warn early.
   if (url.length > 200000) {

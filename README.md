@@ -78,7 +78,9 @@ When configured, **Share Script…** will create a short link like `https://.../
 If you deploy SlugGo via GitHub Pages (Actions), set this repository secret so the Pages build includes the backend URL:
 
 - Secret name: `VITE_SHARE_SERVICE_BASE`
-- Secret value: `https://sluggo-share.kungfufilla.workers.dev`
+- Secret value: `https://<your-share-service>.workers.dev`
+
+Note: Cloudflare’s default `workers.dev` hostname includes your account subdomain. If you don’t want that public-facing, put the Worker behind a custom domain and use that URL as the secret value.
 
 ## Deploy (recommended)
 
