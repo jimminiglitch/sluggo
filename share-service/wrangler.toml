@@ -1,0 +1,13 @@
+name = "sluggo-share"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# Set this to your deployed SlugGo URL.
+# For GitHub Pages it is typically: https://jimminiglitch.github.io/sluggo/
+[vars]
+APP_URL = "https://jimminiglitch.github.io/sluggo/"
+
+[[kv_namespaces]]
+binding = "SHARES"
+id = "REPLACE_WITH_PROD_KV_ID"
+preview_id = "REPLACE_WITH_PREVIEW_KV_ID"

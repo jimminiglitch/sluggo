@@ -54,6 +54,25 @@ npm run preview
 
 The production build goes to `sluggo/dist/`.
 
+## Optional: Share Service (OG Preview Cards)
+
+SlugGo can optionally use a minimal backend share service to generate short links with real OpenGraph/Twitter preview cards (needed for email/social clients that don’t execute JS).
+
+- Backend lives in `share-service/` (Cloudflare Worker + KV)
+- Frontend opt-in via `VITE_SHARE_SERVICE_BASE` (build-time)
+
+### Frontend configuration
+
+Set `VITE_SHARE_SERVICE_BASE` to your Worker’s base URL (no trailing slash). Example:
+
+```bash
+# PowerShell
+$env:VITE_SHARE_SERVICE_BASE="https://your-worker.example.workers.dev"
+npm --prefix ./sluggo run dev
+```
+
+When configured, **Share Script…** will create a short link like `https://.../s/<id>` and copy/share that URL. Opening the link loads SlugGo using `?shareId=<id>`.
+
 ## Deploy (recommended)
 
 This repo includes GitHub Actions workflows:

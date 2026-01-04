@@ -49,6 +49,8 @@
           <button data-action="export-pdf"><span>Print / Save as PDF...</span><kbd>Ctrl+P</kbd></button>
           <button data-action="export-fdx"><span>Export Final Draft (FDX)...</span></button>
           <button data-action="export-txt"><span>Export Plain Text (.txt)</span></button>
+          <div class="menu-divider"></div>
+          <button data-action="share-script"><span>Share Script...</span></button>
         </div>
       </div>
       <div class="menu-item">
@@ -185,7 +187,7 @@
                 <div class="title-page-center">
                   <input type="text" id="input-title" class="title-page-title" placeholder="UNTITLED SCREENPLAY" />
                   <div class="title-page-by">Written by</div>
-                  <input type="text" id="input-author" class="title-page-author" placeholder="Your Name" />
+                  <textarea id="input-author" class="title-page-author" placeholder="Your Name"></textarea>
                 </div>
 
                 <div class="title-page-footer">

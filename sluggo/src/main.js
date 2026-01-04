@@ -41,6 +41,303 @@ function getShareUrl() {
   }
 }
 
+function getShareServiceBase() {
+  const raw = String(import.meta.env.VITE_SHARE_SERVICE_BASE || '').trim()
+  if (!raw) return ''
+  return raw.replace(/\/+$/, '')
+}
+
+async function createBackendShare({ fileName, title, author, data }) {
+  const base = getShareServiceBase()
+  if (!base) return null
+
+  const res = await fetch(`${base}/api/share`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ fileName, title, author, data })
+  })
+
+  if (!res.ok) {
+    throw new Error(`Share service returned ${res.status}`)
+  }
+
+  const out = await res.json()
+  const id = String(out?.id || '').trim()
+  if (!id) throw new Error('Share service returned no id')
+  return {
+    id,
+    url: `${base}/s/${encodeURIComponent(id)}`
+  }
+}
+
+function base64UrlEncodeFromBytes(bytes) {
+  const chunkSize = 0x8000
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+  const b64 = btoa(binary)
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function base64UrlDecodeToBytes(b64url) {
+  const cleaned = String(b64url || '').replace(/-/g, '+').replace(/_/g, '/')
+  const pad = cleaned.length % 4
+  const padded = pad ? cleaned + '='.repeat(4 - pad) : cleaned
+  const binary = atob(padded)
+  const out = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+  return out
+}
+
+async function gzipStringToBase64Url(text) {
+  const raw = new TextEncoder().encode(String(text ?? ''))
+
+  if (typeof CompressionStream !== 'function') {
+    return `js:${base64UrlEncodeFromBytes(raw)}`
+  }
+
+  const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream('gzip'))
+  const buf = await new Response(stream).arrayBuffer()
+  return `gz:${base64UrlEncodeFromBytes(new Uint8Array(buf))}`
+}
+
+async function ungzipBase64UrlToString(encoded) {
+  const raw = String(encoded || '')
+  const m = raw.match(/^(gz|js):(.+)$/)
+  const kind = m?.[1] || 'js'
+  const payload = m?.[2] || raw
+  const bytes = base64UrlDecodeToBytes(payload)
+
+  if (kind !== 'gz') {
+    return new TextDecoder().decode(bytes)
+  }
+
+  if (typeof DecompressionStream !== 'function') {
+    throw new Error('Compressed share link not supported in this browser.')
+  }
+
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))
+  const buf = await new Response(stream).arrayBuffer()
+  return new TextDecoder().decode(new Uint8Array(buf))
+}
+
+function getBaseShareUrl() {
+  // Ensure we share the app URL without any existing hash.
+  const base = getShareUrl()
+  return String(base).split('#')[0]
+}
+
+function formatAuthorListForTitle(lines) {
+  const items = (Array.isArray(lines) ? lines : [])
+    .map(s => String(s || '').trim())
+    .filter(Boolean)
+
+  if (items.length === 0) return ''
+  if (items.length === 1) return items[0]
+  if (items.length === 2) return `${items[0]} & ${items[1]}`
+  return `${items.slice(0, -1).join(', ')} & ${items[items.length - 1]}`
+}
+
+async function shareCurrentScript() {
+  persistActiveTabState()
+  const tab = getActiveTab()
+  if (!tab?.data) return
+
+  const title = String(tab.data?.metadata?.title || '').trim()
+  const authorRaw = String(tab.data?.metadata?.author || '').trim()
+  const authorLines = authorRaw.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+  const authorLabel = formatAuthorListForTitle(authorLines)
+
+  const defaultName = [title, authorLabel ? `by ${authorLabel}` : '']
+    .filter(Boolean)
+    .join(' ')
+    .trim() || stripScriptExtension(tab.fileName) || 'SlugGo Script'
+
+  // Optional: let writers override what gets pasted into email/Canvas.
+  const promptValue = window.prompt('Share title (shown when you paste):', defaultName)
+  if (promptValue === null) return
+  const name = String(promptValue || '').trim() || defaultName
+
+  const payload = {
+    v: 1,
+    fileName: tab.fileName,
+    data: tab.data
+  }
+
+  // Preferred (optional) path: short link + real OG preview card.
+  // Requires configuring VITE_SHARE_SERVICE_BASE at build time.
+  try {
+    const backend = await createBackendShare({
+      fileName: tab.fileName,
+      title: name,
+      author: authorLabel,
+      data: tab.data
+    })
+
+    if (backend?.url) {
+      const shareUrl = backend.url
+      const shareText = `${name}\n${shareUrl}`
+
+      // Try share sheet if available (may be blocked on some platforms after async work).
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: name, text: name, url: shareUrl })
+          flashSaveStatus('Shared')
+          return
+        } catch (_) {
+          // Fall through to clipboard.
+        }
+      }
+
+      const copied = await copyToClipboard(shareText)
+      if (copied) {
+        flashSaveStatus('Share link copied')
+      } else {
+        window.prompt('Copy share text:', shareText)
+      }
+      return
+    }
+  } catch (_) {
+    // If the backend is misconfigured/unavailable, fall back to no-backend sharing below.
+  }
+
+  // If the platform supports the native share sheet, call it immediately from
+  // this click handler (no awaits beforehand) so the browser treats it as a
+  // user gesture. For this path we use synchronous (uncompressed) encoding.
+  if (navigator.share) {
+    try {
+      const raw = JSON.stringify(payload)
+      const bytes = new TextEncoder().encode(raw)
+      const encoded = `js:${base64UrlEncodeFromBytes(bytes)}`
+      const url = `${getBaseShareUrl()}#share=${encoded}`
+
+      // Extremely long URLs won’t paste reliably everywhere; warn early.
+      if (url.length > 200000) {
+        alert('This script is too large to share as a single link. Use Save/Export instead.')
+        return
+      }
+
+      await navigator.share({
+        title: name,
+        text: name,
+        url
+      })
+      flashSaveStatus('Shared')
+      return
+    } catch (_) {
+      // User can cancel share; treat as no-op.
+      return
+    }
+  }
+
+  // Clipboard fallback: allow async compression to keep URLs shorter.
+  const encoded = await gzipStringToBase64Url(JSON.stringify(payload))
+  const url = `${getBaseShareUrl()}#share=${encoded}`
+  const shareText = `${name}\n${url}`
+
+  // Extremely long URLs won’t paste reliably everywhere; warn early.
+  if (url.length > 200000) {
+    alert('This script is too large to share as a single link. Use Save/Export instead.')
+    return
+  }
+
+  const copied = await copyToClipboard(shareText)
+  if (copied) {
+    flashSaveStatus('Share link copied')
+  } else {
+    window.prompt('Copy share text:', shareText)
+  }
+}
+
+function getSharedScriptTokenFromUrl() {
+  const hash = String(window.location.hash || '')
+  const m = hash.match(/#(?:.*?)(?:share=)([^&]+)/)
+  return m?.[1] ? decodeURIComponent(m[1]) : null
+}
+
+function getSharedScriptIdFromQuery() {
+  try {
+    const url = new URL(window.location.href)
+    const id = url.searchParams.get('shareId')
+    return id ? String(id).trim() : null
+  } catch (_) {
+    return null
+  }
+}
+
+async function tryImportSharedScriptFromBackend() {
+  const id = getSharedScriptIdFromQuery()
+  if (!id) return false
+
+  const base = getShareServiceBase()
+  if (!base) {
+    alert('This link requires a share service, but it is not configured for this build.')
+    return false
+  }
+
+  try {
+    const res = await fetch(`${base}/api/share/${encodeURIComponent(id)}`)
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
+    const payload = await res.json()
+    const data = payload?.data
+    if (!data || typeof data !== 'object' || typeof data.content !== 'string') {
+      throw new Error('Invalid share payload')
+    }
+
+    const fileName = withPrimaryScriptExtension(payload?.fileName || `Shared${PRIMARY_SCRIPT_EXTENSION}`)
+    openScriptInNewTab({ fileName, fileHandle: null, data })
+    flashSaveStatus('Opened shared script')
+
+    // Prevent re-import on refresh.
+    try {
+      const clean = `${window.location.origin}${window.location.pathname}`
+      window.history.replaceState(null, '', clean)
+    } catch (_) {
+      // Ignore
+    }
+
+    return true
+  } catch (err) {
+    console.warn('Failed to import backend share:', err)
+    alert('Could not open that shared script link.')
+    return false
+  }
+}
+
+async function tryImportSharedScriptFromUrl() {
+  const token = getSharedScriptTokenFromUrl()
+  if (!token) return false
+
+  try {
+    const json = await ungzipBase64UrlToString(token)
+    const payload = JSON.parse(json)
+
+    const data = payload?.data
+    if (!data || typeof data !== 'object' || typeof data.content !== 'string') {
+      throw new Error('Invalid shared script payload')
+    }
+
+    const fileName = withPrimaryScriptExtension(payload?.fileName || `Shared${PRIMARY_SCRIPT_EXTENSION}`)
+    openScriptInNewTab({ fileName, fileHandle: null, data })
+    flashSaveStatus('Opened shared script')
+
+    // Prevent re-import on refresh.
+    try {
+      const base = `${window.location.origin}${window.location.pathname}${window.location.search}`
+      window.history.replaceState(null, '', base)
+    } catch (_) {
+      // Ignore
+    }
+    return true
+  } catch (err) {
+    console.warn('Failed to import shared script:', err)
+    alert('Could not open shared script link. It may be corrupted or too new for this browser.')
+    return false
+  }
+}
+
 async function copyToClipboard(text) {
   const value = String(text || '')
   if (!value) return false
@@ -1050,6 +1347,14 @@ function updateInstallMenuVisibility() {
   const uninstallBtn = document.querySelector('[data-action="uninstall-app"]')
   if (!installBtn || !uninstallBtn) return
 
+  // Dev ergonomics: the install prompt isn't meaningful on Vite dev server and
+  // can be disruptive if triggered accidentally.
+  if (import.meta.env.DEV) {
+    installBtn.hidden = true
+    uninstallBtn.hidden = true
+    return
+  }
+
   const standalone = isRunningStandalone()
   installBtn.hidden = standalone
   uninstallBtn.hidden = !standalone
@@ -1075,6 +1380,11 @@ function isRunningStandalone() {
 updateInstallMenuVisibility()
 
 async function promptInstall() {
+  if (import.meta.env.DEV) {
+    flashSaveStatus('Install available in preview/build')
+    return
+  }
+
   if (!deferredInstallPrompt) {
     // No prompt available: either already installed, unsupported, or not yet eligible.
     // Keep it simple and point the user to the browser's install UI.
@@ -1123,6 +1433,9 @@ const menuActions = {
   'export-pdf': () => printScript(),
   'export-fdx': () => exportFDX(),
   'export-txt': () => exportPlainText(),
+  'share-script': () => {
+    shareCurrentScript()
+  },
 
   // Edit
   'undo': () => historyUndo(),
@@ -1476,6 +1789,14 @@ darkModeToggleBtn?.addEventListener('click', () => {
 })
 
 updateViewToggleUI()
+
+document.getElementById('input-author')?.addEventListener('input', () => {
+  scheduleTitlePageTextareaResize()
+})
+
+window.addEventListener('resize', () => {
+  scheduleTitlePageTextareaResize()
+})
 
 // Page numbers + jump-to-page UI
 pageNumbersToggle?.addEventListener('change', () => {
@@ -2753,7 +3074,41 @@ function loadScriptData(data) {
     const rightsEl = document.getElementById('input-rights')
     if (rightsEl) rightsEl.value = data.metadata.rights || ''
   }
+
+  scheduleTitlePageTextareaResize()
   updateUI()
+}
+
+function resizeTextareaToContent(el, { maxHeightPx = null } = {}) {
+  if (!el) return
+
+  el.style.height = 'auto'
+  const desired = el.scrollHeight
+  const max = Number.isFinite(maxHeightPx) ? Math.max(0, maxHeightPx) : null
+
+  if (max && desired > max) {
+    el.style.height = `${max}px`
+    el.style.overflowY = 'auto'
+    return
+  }
+
+  el.style.height = `${desired}px`
+  el.style.overflowY = 'hidden'
+}
+
+let titlePageTextareaResizeRaf = null
+
+function scheduleTitlePageTextareaResize() {
+  if (titlePageTextareaResizeRaf) return
+  titlePageTextareaResizeRaf = requestAnimationFrame(() => {
+    titlePageTextareaResizeRaf = null
+    const authorEl = document.getElementById('input-author')
+    if (!authorEl) return
+
+    const pageRect = titlePageView?.getBoundingClientRect?.()
+    const maxHeight = pageRect?.height ? Math.floor(pageRect.height * 0.28) : 280
+    resizeTextareaToContent(authorEl, { maxHeightPx: maxHeight })
+  })
 }
 
 // Auto-save every 30 seconds (to local storage as backup)
@@ -2783,11 +3138,13 @@ function getPlainTextExport() {
   const date = read('input-date')
   const rights = read('input-rights')
 
+  const authorLines = author.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+
   const titleLines = []
   if (title) titleLines.push(title)
   if (author || title) {
     titleLines.push('', 'Written by')
-    if (author) titleLines.push(author)
+    if (authorLines.length) titleLines.push(...authorLines)
   }
   if (contact) {
     titleLines.push('', ...contact.split(/\r?\n/))
@@ -2870,10 +3227,12 @@ function exportFDX() {
   const date = (document.getElementById('input-date')?.value || '').trim()
   const rights = (document.getElementById('input-rights')?.value || '').trim()
 
+  const authorLines = author.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+
   const titlePageParas = []
   if (title) titlePageParas.push({ type: 'Title', text: title })
   titlePageParas.push({ type: 'Credit', text: 'Written by' })
-  if (author) titlePageParas.push({ type: 'Author', text: author })
+  authorLines.forEach(line => titlePageParas.push({ type: 'Author', text: line }))
   if (contact) {
     contact.split(/\r?\n/).forEach(line => titlePageParas.push({ type: 'Contact', text: line }))
   }
@@ -3140,13 +3499,20 @@ function hideAutocomplete() {
 // ============================================
 // INITIALIZATION
 // ============================================
-function init() {
+async function init() {
   loadSettings()
   applySettingsToUI()
 
   applyInitialSidebarState()
 
   updateDarkModeToggleUI()
+
+  // Shared-link import takes priority: open it as a new tab.
+  // Backend (OG preview) share links use ?shareId=...
+  await tryImportSharedScriptFromBackend()
+
+  // No-backend share links use #share=...
+  await tryImportSharedScriptFromUrl()
 
   // Load saved workspace (tabs).
   const savedWorkspace = localStorage.getItem('sluggo_workspace')
@@ -3210,6 +3576,7 @@ function init() {
   renderTabs()
 
   updateUI()
+  scheduleTitlePageTextareaResize()
   // Autocomplete data is rebuilt above.
 
   // Show tutorial on first visit
@@ -3223,7 +3590,9 @@ function init() {
   updateCurrentElementFromCursor()
 }
 
-init()
+init().catch(err => {
+  console.error('Init failed', err)
+})
 
 // PWA Service Worker Registration
 // Important: do NOT register the SW in dev, it can cache index.html and break Vite HMR.

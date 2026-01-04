@@ -723,6 +723,10 @@ body {
   width: 60%;
   outline: none;
   color: inherit;
+  overflow: hidden;
+  resize: none;
+  min-height: 2.6em;
+  line-height: 1.3;
 }
 
 .title-page-footer {
