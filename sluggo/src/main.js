@@ -2645,7 +2645,7 @@ function getTemplateScriptData({ title = '', author = '', contact = '', date = '
 <div class="el-fade-in">FADE IN:</div>
 <div class="el-action"><br></div>
 <div class="el-scene-heading">INT. SOMEWHERE INTERESTING - DAY</div>
-<div class="el-action">A single, vivid action line. Keep it lean. Keep it visual.</div>
+<div class="el-action">A vivid action line. Keep it lean. Keep it visual.</div>
 <div class="el-action"><br></div>
 <div class="el-character">YOU</div>
 <div class="el-parenthetical">(testing the format)</div>
