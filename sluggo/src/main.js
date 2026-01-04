@@ -3365,6 +3365,70 @@ function updateCurrentElementFromCursor() {
   const line = getCurrentLine()
   if (!line) return
 
+  // Smart default: if user navigates into an existing blank line, infer the
+  // intended element type from the previous meaningful line.
+  const isBlankActionLine = (el) => {
+    if (!el) return false
+    if ((el.textContent || '').trim() !== '') return false
+    return el.classList?.contains('el-action')
+  }
+
+  const getElementForLine = (lineEl) => {
+    if (!lineEl) return 'action'
+    for (const [elem, cls] of Object.entries(ELEMENT_CLASSES)) {
+      if (lineEl.classList.contains(cls)) return elem
+    }
+    return 'action'
+  }
+
+  const getPrevLineAcrossPages = (current) => {
+    if (!current) return null
+    if (current.previousElementSibling) return current.previousElementSibling
+    const page = current.parentElement
+    let prevPage = page?.previousElementSibling
+    while (prevPage && prevPage.classList?.contains('title-page-view')) {
+      prevPage = prevPage.previousElementSibling
+    }
+    return prevPage?.classList?.contains('screenplay-page') ? prevPage.lastElementChild : null
+  }
+
+  const maybeSmartDefaultBlankLine = (current) => {
+    if (!isBlankActionLine(current)) return null
+
+    const transitions = {
+      'scene-heading': 'action',
+      'character': 'dialogue',
+      // Navigation heuristic: dialogue blocks usually continue until explicitly ended.
+      'dialogue': 'dialogue',
+      'parenthetical': 'dialogue',
+      'transition': 'scene-heading'
+    }
+
+    let prev = getPrevLineAcrossPages(current)
+    while (prev && isBlankActionLine(prev)) {
+      prev = getPrevLineAcrossPages(prev)
+    }
+    if (!prev) return null
+
+    const prevElement = getElementForLine(prev)
+    const nextElement = transitions[prevElement]
+    if (!nextElement || nextElement === 'action') return null
+
+    const nextClass = getElementClass(nextElement)
+    for (const cls of Object.values(ELEMENT_CLASSES)) {
+      current.classList.remove(cls)
+    }
+    current.classList.add(nextClass)
+    return nextElement
+  }
+
+  const smartElement = maybeSmartDefaultBlankLine(line)
+  if (smartElement) {
+    setElement(smartElement)
+    markDirty()
+    return
+  }
+
   for (const [elem, cls] of Object.entries(ELEMENT_CLASSES)) {
     if (line.classList.contains(cls)) {
       setElement(elem)
