@@ -1,3 +1,9 @@
+## [1.0.6](https://github.com/jimminiglitch/sluggo/compare/v1.0.5...v1.0.6) (2026-01-04)
+
+### Features
+
+* add optional share service for generating short links with OpenGraph previews ([5f35a3b](https://github.com/jimminiglitch/sluggo/commit/5f35a3b9af9579e8e9abd5fd9086c53bd638b2b7))
+
 ## [1.0.5](https://github.com/jimminiglitch/sluggo/compare/v1.0.4...v1.0.5) (2026-01-04)
 
 ### Bug Fixes
