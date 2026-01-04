@@ -269,7 +269,7 @@
   <div id="settings-modal" class="modal hidden">
     <div class="modal-content">
       <h2>Settings</h2>
-      <p>Printing and layout options.</p>
+      <p>Printing, layout, and writing options.</p>
 
       <div class="settings-row">
         <label>
@@ -307,6 +307,20 @@
           <option value="narrow">Narrow (1.25in / 1.0in)</option>
           <option value="wide">Wide (1.75in / 1.0in)</option>
         </select>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-scene-intext-quickpick" />
+          Scene headings: include INT./EXT. quick pick
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-parenthetical-auto-parens" />
+          Parentheticals: auto-insert parentheses
+        </label>
       </div>
 
       <button class="btn-primary" id="close-settings">Close</button>

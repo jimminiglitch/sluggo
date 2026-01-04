@@ -158,6 +158,10 @@ async function shareCurrentScript() {
   const tab = getActiveTab()
   if (!tab?.data) return
 
+  // Share should reflect how the document appears (baked casing),
+  // without mutating the live editor text.
+  const bakedData = getScriptDataForSave()
+
   const title = String(tab.data?.metadata?.title || '').trim()
   const authorRaw = String(tab.data?.metadata?.author || '').trim()
   const authorLines = authorRaw.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
@@ -176,7 +180,7 @@ async function shareCurrentScript() {
   const payload = {
     v: 1,
     fileName: tab.fileName,
-    data: tab.data
+    data: bakedData
   }
 
   // Preferred (optional) path: short link + real OG preview card.
@@ -621,7 +625,9 @@ const settingsEls = {
   pageNumbers: document.getElementById('setting-page-numbers'),
   pageNumbersStart2: document.getElementById('setting-page-numbers-start-2'),
   printHeaderStyle: document.getElementById('setting-print-header-style'),
-  marginPreset: document.getElementById('setting-margin-preset')
+  marginPreset: document.getElementById('setting-margin-preset'),
+  sceneIntExtQuickPick: document.getElementById('setting-scene-intext-quickpick'),
+  parentheticalAutoParens: document.getElementById('setting-parenthetical-auto-parens')
 }
 
 function renderHistoryList() {
@@ -720,7 +726,9 @@ const DEFAULT_SETTINGS = {
   showPageNumbersInPrint: true,
   pageNumbersStartOnPage2: true,
   printHeaderStyle: 'none',
-  marginPreset: 'standard'
+  marginPreset: 'standard',
+  sceneHeadingsIntExtQuickPick: true,
+  parentheticalsAutoParens: true
 }
 
 let settings = { ...DEFAULT_SETTINGS }
@@ -750,6 +758,8 @@ function applySettingsToUI() {
   settingsEls.pageNumbersStart2 && (settingsEls.pageNumbersStart2.checked = !!settings.pageNumbersStartOnPage2)
   settingsEls.printHeaderStyle && (settingsEls.printHeaderStyle.value = settings.printHeaderStyle || 'none')
   settingsEls.marginPreset && (settingsEls.marginPreset.value = settings.marginPreset || 'standard')
+  settingsEls.sceneIntExtQuickPick && (settingsEls.sceneIntExtQuickPick.checked = !!settings.sceneHeadingsIntExtQuickPick)
+  settingsEls.parentheticalAutoParens && (settingsEls.parentheticalAutoParens.checked = !!settings.parentheticalsAutoParens)
 
   document.body.classList.toggle('print-include-title-page', !!settings.includeTitlePageInPrint)
   document.body.classList.toggle('print-page-numbers', !!settings.showPageNumbersInPrint)
@@ -1898,6 +1908,18 @@ settingsEls.marginPreset?.addEventListener('change', () => {
   saveSettings()
 })
 
+settingsEls.sceneIntExtQuickPick?.addEventListener('change', () => {
+  settings.sceneHeadingsIntExtQuickPick = !!settingsEls.sceneIntExtQuickPick.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
+settingsEls.parentheticalAutoParens?.addEventListener('change', () => {
+  settings.parentheticalsAutoParens = !!settingsEls.parentheticalAutoParens.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
 // Close modals on backdrop click
 document.querySelectorAll('.modal').forEach(modal => {
   modal.addEventListener('click', (e) => {
@@ -2430,33 +2452,154 @@ function applyElementToCurrentLine(element) {
   const selection = window.getSelection()
   const range = selection.getRangeAt(0)
 
+  const getElementForLine = (lineEl) => {
+    if (!lineEl) return 'action'
+    for (const [elem, cls] of Object.entries(ELEMENT_CLASSES)) {
+      if (lineEl.classList.contains(cls)) return elem
+    }
+    return 'action'
+  }
+
+  const getCaretTextOffsetWithin = (containerEl, currentRange) => {
+    try {
+      const node = currentRange?.startContainer
+      if (!node || !containerEl || !containerEl.contains(node)) return null
+      if (node.nodeType !== Node.TEXT_NODE) return null
+
+      let offset = 0
+      const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT)
+      let cur = walker.nextNode()
+      while (cur) {
+        if (cur === node) {
+          return offset + Math.max(0, Math.min(currentRange.startOffset, cur.nodeValue?.length ?? 0))
+        }
+        offset += cur.nodeValue?.length ?? 0
+        cur = walker.nextNode()
+      }
+      return null
+    } catch (_) {
+      return null
+    }
+  }
+
+  const setCaretTextOffsetWithin = (containerEl, targetOffset) => {
+    if (!containerEl) return false
+    const sel = window.getSelection()
+    if (!sel) return false
+
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n))
+
+    const textNodes = []
+    const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT)
+    let cur = walker.nextNode()
+    while (cur) {
+      textNodes.push(cur)
+      cur = walker.nextNode()
+    }
+
+    // If the line has no text nodes (e.g. <br>), create a text node.
+    if (textNodes.length === 0) {
+      const t = document.createTextNode(containerEl.textContent || '')
+      containerEl.textContent = ''
+      containerEl.appendChild(t)
+      textNodes.push(t)
+    }
+
+    const fullLen = (containerEl.textContent || '').length
+    let remaining = clamp(Number(targetOffset) || 0, 0, fullLen)
+
+    for (const t of textNodes) {
+      const len = t.nodeValue?.length ?? 0
+      if (remaining <= len) {
+        const r = document.createRange()
+        r.setStart(t, clamp(remaining, 0, len))
+        r.collapse(true)
+        sel.removeAllRanges()
+        sel.addRange(r)
+        return true
+      }
+      remaining -= len
+    }
+
+    // Fallback: end of last node
+    const last = textNodes[textNodes.length - 1]
+    const r = document.createRange()
+    r.setStart(last, last.nodeValue?.length ?? 0)
+    r.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(r)
+    return true
+  }
+
   // Save cursor
   const savedOffset = range.startOffset
   const savedNode = range.startContainer
+  const savedTextOffsetInLine = getCaretTextOffsetWithin(line, range)
+  const prevElement = getElementForLine(line)
 
   // Update class
   Object.values(ELEMENT_CLASSES).forEach(cls => line.classList.remove(cls))
   line.classList.add(newClass)
 
-  // Auto-uppercase
-  if (['scene-heading', 'character', 'transition'].includes(element)) {
-    const text = line.textContent.trim()
-    if (text) line.textContent = text.toUpperCase()
+  // Parenthetical helper (optional):
+  // - When switching TO parenthetical: wrap existing text in ( ... ) (or insert "()" if empty).
+  // - When switching OFF parenthetical: remove the outer parentheses.
+  let didOverrideCaretRestore = false
+  if (settings.parentheticalsAutoParens) {
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n))
+    const isWrapped = (s) => {
+      const t = String(s || '').trim()
+      return t.length >= 2 && t.startsWith('(') && t.endsWith(')')
+    }
+
+    if (element === 'parenthetical') {
+      const raw = String(line.textContent || '').trim()
+      const nextText = !raw ? '()' : (isWrapped(raw) ? raw : `(${raw})`)
+      line.textContent = nextText
+
+      // Keep caret inside the parentheses.
+      const endInside = Math.max(1, nextText.length - 1)
+      const desired = savedTextOffsetInLine === null
+        ? endInside
+        : clamp(savedTextOffsetInLine + 1, 1, endInside)
+
+      setCaretTextOffsetWithin(line, desired)
+      didOverrideCaretRestore = true
+    } else if (prevElement === 'parenthetical') {
+      const raw = String(line.textContent || '').trim()
+      if (isWrapped(raw)) {
+        const inner = raw.slice(1, -1).trim()
+        if (!inner) {
+          line.innerHTML = '<br>'
+        } else {
+          line.textContent = inner
+        }
+
+        const desired = savedTextOffsetInLine === null
+          ? (inner ? clamp(inner.length, 0, inner.length) : 0)
+          : clamp(savedTextOffsetInLine - 1, 0, inner.length)
+
+        if (inner) setCaretTextOffsetWithin(line, desired)
+        didOverrideCaretRestore = true
+      }
+    }
   }
 
   // Restore cursor
   try {
-    if (savedNode.parentElement) {
+    if (!didOverrideCaretRestore && savedNode.parentElement) {
       range.setStart(savedNode, Math.min(savedOffset, savedNode.length || 0))
       range.collapse(true)
       selection.removeAllRanges()
       selection.addRange(range)
     }
   } catch (e) {
-    range.selectNodeContents(line)
-    range.collapse(false)
-    selection.removeAllRanges()
-    selection.addRange(range)
+    if (!didOverrideCaretRestore) {
+      range.selectNodeContents(line)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
   }
 
   setElement(element)
@@ -2857,13 +3000,19 @@ function markSaved() {
 function saveToStorage() {
   persistActiveTabState()
   try {
+    const bakeTabDataForStorage = (data) => {
+      if (!data || typeof data !== 'object') return data
+      const content = typeof data.content === 'string' ? data.content : ''
+      return { ...data, content: bakeDisplayCasingIntoContentHtml(content) }
+    }
+
     const payload = {
       v: 1,
       activeTabId,
       tabs: tabs.map(t => ({
         id: t.id,
         fileName: t.fileName,
-        data: t.data
+        data: bakeTabDataForStorage(t.data)
       }))
     }
     localStorage.setItem('sluggo_workspace', JSON.stringify(payload))
@@ -2871,7 +3020,7 @@ function saveToStorage() {
     // Storage quota or serialization error; fall back to saving only the active tab.
     try {
       const tab = getActiveTab()
-      if (tab) localStorage.setItem('sluggo_workspace', JSON.stringify({ v: 1, activeTabId: tab.id, tabs: [{ id: tab.id, fileName: tab.fileName, data: tab.data }] }))
+      if (tab) localStorage.setItem('sluggo_workspace', JSON.stringify({ v: 1, activeTabId: tab.id, tabs: [{ id: tab.id, fileName: tab.fileName, data: bakeTabDataForStorage(tab.data) }] }))
     } catch (_) {
       // Ignore.
     }
@@ -2880,7 +3029,7 @@ function saveToStorage() {
 
 // File System Access API
 async function saveScript(asNew = false) {
-  const scriptData = JSON.stringify(getScriptData(), null, 2)
+  const scriptData = JSON.stringify(getScriptDataForSave(), null, 2)
 
   const tab = getActiveTab()
   if (!tab) return
@@ -3056,6 +3205,40 @@ function getScriptData() {
   }
 }
 
+function bakeDisplayCasingIntoContentHtml(html) {
+  const raw = String(html || '')
+  if (!raw) return ''
+
+  // Bake the same casing rules the UI shows via CSS text-transform.
+  // This is used for save/share/export so outputs match what the user sees,
+  // while leaving the live editor text reversible during editing.
+  try {
+    const doc = new DOMParser().parseFromString(`<div id="__sluggo_wrap">${raw}</div>`, 'text/html')
+    const wrap = doc.getElementById('__sluggo_wrap')
+    if (!wrap) return raw
+
+    const toUpper = wrap.querySelectorAll('.el-scene-heading, .el-character, .el-transition, .el-fade-in')
+    toUpper.forEach((el) => {
+      // Preserve blank lines (<br>) and only transform actual text.
+      const text = el.textContent
+      if (!text) return
+      el.textContent = text.toUpperCase()
+    })
+
+    return wrap.innerHTML
+  } catch (_) {
+    return raw
+  }
+}
+
+function getScriptDataForSave() {
+  const data = getScriptData()
+  return {
+    ...data,
+    content: bakeDisplayCasingIntoContentHtml(data.content)
+  }
+}
+
 function ensureEditorHasAtLeastOnePage() {
   if (!editor) return
   const existing = editor.querySelector('.screenplay-page:not(.title-page-view)')
@@ -3144,6 +3327,18 @@ function downloadFile(content, fileName, contentType) {
 }
 
 function getPlainTextExport() {
+  const getExportLineText = (line) => {
+    const raw = (line?.textContent || '').replace(/\s+$/g, '')
+    const cls = String(line?.className || '')
+
+    // Match on-screen casing rules (CSS text-transform) for export.
+    if (cls.includes('el-scene-heading') || cls.includes('el-character') || cls.includes('el-transition') || cls.includes('el-fade-in')) {
+      return raw.toUpperCase()
+    }
+
+    return raw
+  }
+
   const read = (id) => (document.getElementById(id)?.value || '').trimEnd()
 
   const title = read('input-title')
@@ -3168,7 +3363,7 @@ function getPlainTextExport() {
 
   const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
   const pageText = pages.map(page => {
-    const lines = Array.from(page.children).map(line => (line.textContent || '').replace(/\s+$/g, ''))
+    const lines = Array.from(page.children).map(line => getExportLineText(line))
     // Preserve blank lines and trailing line breaks within a page.
     return lines.join('\n').trimEnd()
   })
@@ -3201,6 +3396,18 @@ function exportFDX() {
   const tab = getActiveTab()
   const base = tab?.fileName?.replace(/\.[^/.]+$/i, '') || 'screenplay'
 
+  const getExportLineText = (line) => {
+    const raw = (line?.textContent || '').replace(/\s+$/g, '')
+    const cls = String(line?.className || '')
+
+    // Match on-screen casing rules (CSS text-transform) for export.
+    if (cls.includes('el-scene-heading') || cls.includes('el-character') || cls.includes('el-transition') || cls.includes('el-fade-in')) {
+      return raw.toUpperCase()
+    }
+
+    return raw
+  }
+
   const escapeXml = (s) => String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -3223,7 +3430,7 @@ function exportFDX() {
   const pages = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view)'))
   pages.forEach(page => {
     Array.from(page.children).forEach(line => {
-      const text = (line.textContent || '').replace(/\s+$/g, '')
+      const text = getExportLineText(line)
       if (!text.trim()) {
         // Preserve intentional blank lines as Action paragraphs (FDX importers vary; this is a safe default)
         paragraphs.push({ type: 'Action', text: '' })
@@ -3429,6 +3636,10 @@ function showAutocomplete() {
     suggestions = Array.from(autocompleteData.characters).filter(c => c.startsWith(text) && c !== text)
   } else if (currentElement === 'scene-heading') {
     const prefixes = ['INT. ', 'EXT. ', 'INT/EXT. ', 'EST. ']
+    if (settings.sceneHeadingsIntExtQuickPick) {
+      // Common screenplay variant: INT./EXT.
+      prefixes.splice(2, 0, 'INT./EXT. ')
+    }
     const matchesPrefix = prefixes.some(p => text.startsWith(p))
 
     if (!matchesPrefix) {
