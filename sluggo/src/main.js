@@ -3339,27 +3339,40 @@ sceneList.addEventListener('click', (e) => {
   const item = e.target.closest('.scene-item')
   if (!item || !item.dataset.sceneId) return
 
-  // If title page is active, toggle it off and show script
-  const titleEl = document.getElementById('title-page-view')
-  if (titleEl && titleEl.classList.contains('active')) {
-    titleEl.classList.remove('active')
-    document.querySelectorAll('.screenplay-page:not(.title-page-view)').forEach(page => {
-      page.style.display = ''
-    })
-  }
+  // Sidebar scene navigation should never “isolate” pages.
+  // Ensure we are in normal body view and clear any legacy inline display overrides.
+  if (isTitlePageVisible()) setTitlePageVisible(false)
+  if (!isBodyVisible()) setBodyVisible(true)
+  editor.querySelectorAll('.screenplay-page:not(.title-page-view)').forEach(page => {
+    page.style.removeProperty('display')
+  })
 
   const sceneEl = document.getElementById(item.dataset.sceneId)
   if (sceneEl) {
-    sceneEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const pageEl = sceneEl.closest('.screenplay-page') || sceneEl
+    pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-    // Move cursor to that scene
+    // Move caret to the scene heading so typing continues there.
     const selection = window.getSelection()
-    const range = document.createRange()
-    range.selectNodeContents(sceneEl)
-    range.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(range)
-    editor.focus()
+    if (selection) {
+      const range = document.createRange()
+      const firstText = sceneEl.firstChild
+      if (firstText && firstText.nodeType === Node.TEXT_NODE) {
+        range.setStart(firstText, 0)
+      } else {
+        range.selectNodeContents(sceneEl)
+        range.collapse(true)
+      }
+      range.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+
+    try {
+      editor.focus({ preventScroll: true })
+    } catch (_) {
+      editor.focus()
+    }
   }
 })
 
