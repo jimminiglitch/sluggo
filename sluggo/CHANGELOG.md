@@ -1,3 +1,9 @@
+## [1.0.7](https://github.com/jimminiglitch/sluggo/compare/v1.0.6...v1.0.7) (2026-01-04)
+
+### Features
+
+* configure GitHub Pages build with share service environment variable and update wrangler.toml with production KV IDs ([f6134d9](https://github.com/jimminiglitch/sluggo/commit/f6134d941cad6ab491e640f2401393c86377c74c))
+
 ## [1.0.6](https://github.com/jimminiglitch/sluggo/compare/v1.0.5...v1.0.6) (2026-01-04)
 
 ### Features
