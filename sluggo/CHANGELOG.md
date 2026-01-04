@@ -1,3 +1,9 @@
+## [1.0.9](https://github.com/jimminiglitch/sluggo/compare/v1.0.8...v1.0.9) (2026-01-04)
+
+### Features
+
+* add CNAME file for custom domain configuration ([a31ade1](https://github.com/jimminiglitch/sluggo/commit/a31ade12df8b47bdd5cf96193e7a0abc637a3542))
+
 ## [1.0.8](https://github.com/jimminiglitch/sluggo/compare/v1.0.7...v1.0.8) (2026-01-04)
 
 ### Features
