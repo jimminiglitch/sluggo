@@ -1,3 +1,9 @@
+## [1.0.11](https://github.com/jimminiglitch/sluggo/compare/v1.0.10...v1.0.11) (2026-01-04)
+
+### Bug Fixes
+
+* improve scene navigation and caret positioning in editor ([1e2e224](https://github.com/jimminiglitch/sluggo/commit/1e2e2245f80357f421dce6194a628cc9e76b7067))
+
 ## [1.0.10](https://github.com/jimminiglitch/sluggo/compare/v1.0.9...v1.0.10) (2026-01-04)
 
 ## [1.0.9](https://github.com/jimminiglitch/sluggo/compare/v1.0.8...v1.0.9) (2026-01-04)
