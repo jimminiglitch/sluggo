@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/jimminiglitch/sluggo/compare/v1.0.0...v1.0.1) (2026-01-04)
+
+### Features
+
+* update meta tags to include 'free' in descriptions for better clarity ([d855eec](https://github.com/jimminiglitch/sluggo/commit/d855eec7be4b1448abbce49f2d521c146d937ace))
+
 ## 1.0.0 (2026-01-04)
 
 ### Features
