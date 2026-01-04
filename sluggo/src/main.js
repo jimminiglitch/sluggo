@@ -1435,6 +1435,8 @@ document.querySelectorAll('.menu-item').forEach(item => {
     if (isMenuOpen) {
       closeAllMenus()
       item.querySelector('.menu-dropdown').style.display = 'block'
+      trigger?.setAttribute('aria-expanded', 'true')
+      lastOpenedMenuTrigger = trigger
     }
   })
 })

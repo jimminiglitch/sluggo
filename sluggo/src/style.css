@@ -127,10 +127,8 @@ body {
   z-index: 1000;
 }
 
-.menu-item:hover .menu-dropdown,
-.menu-item:focus-within .menu-dropdown {
-  display: block;
-}
+/* Dropdown visibility is controlled by JS (click to open/close, then hover between menus while a menu is active).
+   Avoid relying on :hover/:focus-within here because it prevents re-clicking the same menu to close while hovered. */
 
 .menu-dropdown button {
   display: flex;
