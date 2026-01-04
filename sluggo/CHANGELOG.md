@@ -1,3 +1,9 @@
+## [1.0.19](https://github.com/jimminiglitch/sluggo/compare/v1.0.18...v1.0.19) (2026-01-04)
+
+### Features
+
+* add scene heading style selection and smart defaults for blank lines ([bc28962](https://github.com/jimminiglitch/sluggo/commit/bc2896246e223ca03d3ad67a0092e59a8dc99a37))
+
 ## [1.0.18](https://github.com/jimminiglitch/sluggo/compare/v1.0.17...v1.0.18) (2026-01-04)
 
 ### Features
