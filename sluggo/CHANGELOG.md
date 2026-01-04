@@ -1,3 +1,9 @@
+## [1.0.12](https://github.com/jimminiglitch/sluggo/compare/v1.0.11...v1.0.12) (2026-01-04)
+
+### Features
+
+* add settings for scene heading quick pick and parenthetical auto-insert ([2b6d117](https://github.com/jimminiglitch/sluggo/commit/2b6d117560570437df6c6662312bb74b7925c83f))
+
 ## [1.0.11](https://github.com/jimminiglitch/sluggo/compare/v1.0.10...v1.0.11) (2026-01-04)
 
 ### Bug Fixes
