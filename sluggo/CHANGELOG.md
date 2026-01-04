@@ -1,3 +1,9 @@
+## [1.0.3](https://github.com/jimminiglitch/sluggo/compare/v1.0.2...v1.0.3) (2026-01-04)
+
+### Features
+
+* improve menu accessibility and dropdown behavior by updating aria attributes and CSS comments ([1989572](https://github.com/jimminiglitch/sluggo/commit/19895726cf74e43fc19cb9b4164fe5242a0af021))
+
 ## [1.0.2](https://github.com/jimminiglitch/sluggo/compare/v1.0.1...v1.0.2) (2026-01-04)
 
 ### Features
