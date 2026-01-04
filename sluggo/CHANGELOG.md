@@ -1,3 +1,9 @@
+## [1.0.13](https://github.com/jimminiglitch/sluggo/compare/v1.0.12...v1.0.13) (2026-01-04)
+
+### Bug Fixes
+
+* add peer dependency flag to several packages in package-lock.json ([604f7dc](https://github.com/jimminiglitch/sluggo/commit/604f7dc2222d0651865c47bca808644d70ac170b))
+
 ## [1.0.12](https://github.com/jimminiglitch/sluggo/compare/v1.0.11...v1.0.12) (2026-01-04)
 
 ### Features
