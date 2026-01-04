@@ -1,3 +1,9 @@
+## [1.0.5](https://github.com/jimminiglitch/sluggo/compare/v1.0.4...v1.0.5) (2026-01-04)
+
+### Bug Fixes
+
+* refine action line text in template script for clarity ([a9b4cd3](https://github.com/jimminiglitch/sluggo/commit/a9b4cd32e3b5f146f9e12725bb7e098c572059ea))
+
 ## [1.0.4](https://github.com/jimminiglitch/sluggo/compare/v1.0.3...v1.0.4) (2026-01-04)
 
 ## [1.0.3](https://github.com/jimminiglitch/sluggo/compare/v1.0.2...v1.0.3) (2026-01-04)
