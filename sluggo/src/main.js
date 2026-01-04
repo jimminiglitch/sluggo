@@ -676,7 +676,9 @@ const settingsEls = {
   printWatermarkDraft: document.getElementById('setting-print-watermark-draft'),
   marginPreset: document.getElementById('setting-margin-preset'),
   sceneIntExtQuickPick: document.getElementById('setting-scene-intext-quickpick'),
-  parentheticalAutoParens: document.getElementById('setting-parenthetical-auto-parens')
+  sceneIntExtStyle: document.getElementById('setting-scene-intext-style'),
+  parentheticalAutoParens: document.getElementById('setting-parenthetical-auto-parens'),
+  smartBlankLineDefaults: document.getElementById('setting-smart-blank-line-defaults')
 }
 
 function renderHistoryList() {
@@ -778,7 +780,9 @@ const DEFAULT_SETTINGS = {
   printWatermarkDraft: false,
   marginPreset: 'standard',
   sceneHeadingsIntExtQuickPick: true,
-  parentheticalsAutoParens: true
+  sceneHeadingsIntExtStyle: 'INT./EXT.',
+  parentheticalsAutoParens: true,
+  smartBlankLineDefaults: true
 }
 
 let settings = { ...DEFAULT_SETTINGS }
@@ -810,7 +814,9 @@ function applySettingsToUI() {
   settingsEls.printWatermarkDraft && (settingsEls.printWatermarkDraft.checked = !!settings.printWatermarkDraft)
   settingsEls.marginPreset && (settingsEls.marginPreset.value = settings.marginPreset || 'standard')
   settingsEls.sceneIntExtQuickPick && (settingsEls.sceneIntExtQuickPick.checked = !!settings.sceneHeadingsIntExtQuickPick)
+  settingsEls.sceneIntExtStyle && (settingsEls.sceneIntExtStyle.value = settings.sceneHeadingsIntExtStyle || 'INT./EXT.')
   settingsEls.parentheticalAutoParens && (settingsEls.parentheticalAutoParens.checked = !!settings.parentheticalsAutoParens)
+  settingsEls.smartBlankLineDefaults && (settingsEls.smartBlankLineDefaults.checked = !!settings.smartBlankLineDefaults)
 
   document.body.classList.toggle('print-include-title-page', !!settings.includeTitlePageInPrint)
   document.body.classList.toggle('print-page-numbers', !!settings.showPageNumbersInPrint)
@@ -1523,7 +1529,7 @@ function restoreFromHistory(state) {
 function getDefaultAutocompleteData() {
   return {
     characters: new Set(),
-    locations: new Set(['INT. ', 'EXT. ', 'INT/EXT. ', 'EST. '])
+    locations: new Set(['INT. ', 'EXT. ', 'INT/EXT. ', 'INT./EXT. ', 'EST. '])
   }
 }
 
@@ -2306,8 +2312,21 @@ settingsEls.sceneIntExtQuickPick?.addEventListener('change', () => {
   saveSettings()
 })
 
+settingsEls.sceneIntExtStyle?.addEventListener('change', () => {
+  const v = String(settingsEls.sceneIntExtStyle.value || '').trim()
+  settings.sceneHeadingsIntExtStyle = (v === 'INT/EXT.' || v === 'INT./EXT.') ? v : 'INT./EXT.'
+  applySettingsToUI()
+  saveSettings()
+})
+
 settingsEls.parentheticalAutoParens?.addEventListener('change', () => {
   settings.parentheticalsAutoParens = !!settingsEls.parentheticalAutoParens.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
+settingsEls.smartBlankLineDefaults?.addEventListener('change', () => {
+  settings.smartBlankLineDefaults = !!settingsEls.smartBlankLineDefaults.checked
   applySettingsToUI()
   saveSettings()
 })
@@ -3367,6 +3386,18 @@ function updateCurrentElementFromCursor() {
 
   // Smart default: if user navigates into an existing blank line, infer the
   // intended element type from the previous meaningful line.
+  if (!settings.smartBlankLineDefaults) {
+    for (const [elem, cls] of Object.entries(ELEMENT_CLASSES)) {
+      if (line.classList.contains(cls)) {
+        setElement(elem)
+        return
+      }
+    }
+    setElement('action')
+    hideAutocomplete()
+    return
+  }
+
   const isBlankActionLine = (el) => {
     if (!el) return false
     if ((el.textContent || '').trim() !== '') return false
@@ -4109,17 +4140,21 @@ function showAutocomplete() {
   if (currentElement === 'character') {
     suggestions = Array.from(autocompleteData.characters).filter(c => c.startsWith(text) && c !== text)
   } else if (currentElement === 'scene-heading') {
-    const prefixes = ['INT. ', 'EXT. ', 'INT/EXT. ', 'EST. ']
+    const chosenIntExt = String(settings.sceneHeadingsIntExtStyle || 'INT./EXT.').trim() === 'INT/EXT.' ? 'INT/EXT. ' : 'INT./EXT. '
+    const quickPickPrefixes = ['INT. ', 'EXT. ', 'EST. ']
     if (settings.sceneHeadingsIntExtQuickPick) {
-      // Common screenplay variant: INT./EXT.
-      prefixes.splice(2, 0, 'INT./EXT. ')
+      // Offer only the preferred combined prefix.
+      quickPickPrefixes.splice(2, 0, chosenIntExt)
     }
-    const matchesPrefix = prefixes.some(p => text.startsWith(p))
+
+    // Accept both variants when completing an existing heading.
+    const supportedPrefixes = ['INT. ', 'EXT. ', 'INT/EXT. ', 'INT./EXT. ', 'EST. ']
+    const matchesPrefix = supportedPrefixes.some(p => text.startsWith(p))
 
     if (!matchesPrefix) {
-      suggestions = prefixes.filter(p => p.startsWith(text))
+      suggestions = quickPickPrefixes.filter(p => p.startsWith(text))
     } else {
-      const prefix = prefixes.find(p => text.startsWith(p))
+      const prefix = supportedPrefixes.find(p => text.startsWith(p))
       const query = text.replace(prefix, '')
       suggestions = Array.from(autocompleteData.locations).filter(l => l.startsWith(query)).map(l => prefix + l)
     }

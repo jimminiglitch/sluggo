@@ -325,14 +325,29 @@
       <div class="settings-row">
         <label>
           <input type="checkbox" id="setting-scene-intext-quickpick" />
-          Scene headings: include INT./EXT. quick pick
+          Scene headings: include INT/EXT quick pick
         </label>
+      </div>
+
+      <div class="settings-row settings-row-stack">
+        <label for="setting-scene-intext-style">Scene heading INT/EXT style</label>
+        <select id="setting-scene-intext-style" class="form-select">
+          <option value="INT./EXT.">INT./EXT.</option>
+          <option value="INT/EXT.">INT/EXT.</option>
+        </select>
       </div>
 
       <div class="settings-row">
         <label>
           <input type="checkbox" id="setting-parenthetical-auto-parens" />
           Parentheticals: auto-insert parentheses
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-smart-blank-line-defaults" />
+          Writing: smart defaults on blank lines
         </label>
       </div>
 
