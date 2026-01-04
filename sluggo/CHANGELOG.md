@@ -1,3 +1,9 @@
+## [1.0.15](https://github.com/jimminiglitch/sluggo/compare/v1.0.14...v1.0.15) (2026-01-04)
+
+### Features
+
+* add dual dialogue toggle button and update quick bar state management ([8b24745](https://github.com/jimminiglitch/sluggo/commit/8b24745150fa4a7e06ae26a21b76136b2b2e3e9f))
+
 ## [1.0.14](https://github.com/jimminiglitch/sluggo/compare/v1.0.13...v1.0.14) (2026-01-04)
 
 ### Features
