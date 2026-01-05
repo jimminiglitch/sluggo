@@ -1331,10 +1331,9 @@ body {
   }
 
   body.print-watermark-draft .screenplay-page:not(.title-page-view) > .page-watermark {
-    display: block;
+    display: grid;
     position: absolute;
     inset: 0;
-    display: grid;
     place-items: center;
     font-family: var(--font-mono);
     font-size: 96pt;
