@@ -1,3 +1,9 @@
+## [1.0.23](https://github.com/jimminiglitch/sluggo/compare/v1.0.22...v1.0.23) (2026-01-05)
+
+### Features
+
+* enhance dual dialogue functionality with blank line removal and visual markers ([c411e6c](https://github.com/jimminiglitch/sluggo/commit/c411e6c547cc92556f62e54796f5375e5eccee1e))
+
 ## [1.0.22](https://github.com/jimminiglitch/sluggo/compare/v1.0.21...v1.0.22) (2026-01-05)
 
 ### Bug Fixes
