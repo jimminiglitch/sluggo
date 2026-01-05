@@ -1,3 +1,9 @@
+## [1.0.25](https://github.com/jimminiglitch/sluggo/compare/v1.0.24...v1.0.25) (2026-01-05)
+
+### Features
+
+* add JSON export functionality to the export menu ([6efdecb](https://github.com/jimminiglitch/sluggo/commit/6efdecb482f9447dc3bf05779ca15ae1a7493b0c))
+
 ## [1.0.24](https://github.com/jimminiglitch/sluggo/compare/v1.0.23...v1.0.24) (2026-01-05)
 
 ### Features
