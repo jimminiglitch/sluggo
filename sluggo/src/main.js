@@ -992,12 +992,27 @@ function getPrevDialogueBlock(block) {
   }
   if (!cursor) return null
 
-  // Walk backward until we find the previous character line.
-  while (cursor && !cursor.classList?.contains('el-character')) {
-    cursor = cursor.previousElementSibling
-  }
-  if (!cursor) return null
+  // Previous block must be immediately adjacent (aside from blank action lines).
+  // If we hit non-dialogue content, don't jump backwards across it.
+  const isDialogueish = (el) => !!el?.classList && (el.classList.contains('el-character') || el.classList.contains('el-parenthetical') || el.classList.contains('el-dialogue'))
+  if (!isDialogueish(cursor)) return null
+
   return getDialogueBlockFromLine(cursor)
+}
+
+function removeBlankActionLinesBetweenBlocks(leftBlock, rightBlock) {
+  const leftEnd = leftBlock?.end
+  const rightStart = rightBlock?.start
+  if (!leftEnd || !rightStart) return
+  if (leftEnd.parentElement !== rightStart.parentElement) return
+
+  let cursor = leftEnd.nextElementSibling
+  while (cursor && cursor !== rightStart) {
+    const next = cursor.nextElementSibling
+    const isBlankAction = cursor.classList?.contains('el-action') && ((cursor.textContent || '').trim() === '')
+    if (isBlankAction) cursor.remove()
+    cursor = next
+  }
 }
 
 function clearDualDialogueAttrs(block) {
@@ -1046,6 +1061,9 @@ function toggleDualDialogueAtCursor() {
     if (leftGroup) clearDualGroupId(leftGroup, page)
     if (rightGroup && rightGroup !== leftGroup) clearDualGroupId(rightGroup, page)
 
+    // Dual groups must be contiguous for print wrapping; remove spacer blank lines.
+    removeBlankActionLinesBetweenBlocks(left, right)
+
     const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
     applyDualDialogueAttrs(left, { groupId, side: 'left' })
     applyDualDialogueAttrs(right, { groupId, side: 'right' })
@@ -1092,6 +1110,9 @@ function toggleDualDialogueAtCursor() {
   }
 
   recordHistoryCheckpoint({ inputType: 'format' })
+
+  // Dual groups must be contiguous for print wrapping; remove spacer blank lines.
+  removeBlankActionLinesBetweenBlocks(left, right)
 
   const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
   applyDualDialogueAttrs(left, { groupId, side: 'left' })

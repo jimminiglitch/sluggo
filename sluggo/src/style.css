@@ -661,6 +661,29 @@ body {
   margin-bottom: 12pt;
 }
 
+/* Dual dialogue markers (editor-only): subtle gutter dots on character lines */
+.screenplay-page > .el-character[data-dual-group] {
+  position: relative;
+}
+
+.screenplay-page > .el-character[data-dual-group]::before {
+  content: '';
+  position: absolute;
+  left: -0.5in;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.18;
+}
+
+.screenplay-page > .el-character[data-dual-group][data-dual-side="right"]::before {
+  background: transparent;
+  border: 1px solid currentColor;
+  opacity: 0.18;
+}
+
 .el-transition {
   text-transform: uppercase;
   text-align: right;
@@ -1333,6 +1356,11 @@ body {
     display: flex;
     gap: 0.25in;
     margin-bottom: 12pt;
+  }
+
+  /* Don't print editor-only dual markers */
+  .screenplay-page > .el-character[data-dual-group]::before {
+    content: none;
   }
 
   .dual-dialogue .dual-col {
