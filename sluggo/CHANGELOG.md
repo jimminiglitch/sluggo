@@ -1,3 +1,9 @@
+## [1.0.27](https://github.com/jimminiglitch/sluggo/compare/v1.0.26...v1.0.27) (2026-01-05)
+
+### Bug Fixes
+
+* correct display property for print watermark draft to use block layout ([11edb36](https://github.com/jimminiglitch/sluggo/commit/11edb36e38cc2cc4949493f7ea4f6c8a0e40e7b8))
+
 ## [1.0.26](https://github.com/jimminiglitch/sluggo/compare/v1.0.25...v1.0.26) (2026-01-05)
 
 ### Bug Fixes
