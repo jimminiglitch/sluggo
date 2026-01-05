@@ -1,3 +1,9 @@
+## [1.0.21](https://github.com/jimminiglitch/sluggo/compare/v1.0.20...v1.0.21) (2026-01-05)
+
+### Bug Fixes
+
+* update URLs to reflect new domain sluggo.net ([0043536](https://github.com/jimminiglitch/sluggo/commit/004353644b72e0505bfcc0e855cfbffe38f59fed))
+
 ## [1.0.20](https://github.com/jimminiglitch/sluggo/compare/v1.0.19...v1.0.20) (2026-01-04)
 
 ### Features
