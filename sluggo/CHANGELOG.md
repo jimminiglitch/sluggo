@@ -1,3 +1,9 @@
+## [1.0.26](https://github.com/jimminiglitch/sluggo/compare/v1.0.25...v1.0.26) (2026-01-05)
+
+### Bug Fixes
+
+* update display property for print watermark draft to use grid layout ([2c8d22e](https://github.com/jimminiglitch/sluggo/commit/2c8d22e3e5b800f4a911755c83d51d23bcc15838))
+
 ## [1.0.25](https://github.com/jimminiglitch/sluggo/compare/v1.0.24...v1.0.25) (2026-01-05)
 
 ### Features
