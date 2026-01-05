@@ -98,7 +98,7 @@ Once enabled, every merge/push to `main` will publish the site.
 
 Shareable link (GitHub Pages):
 
-- https://jimminiglitch.github.io/sluggo/
+- https://sluggo.net/
 
 That link is just the hosted app — people don’t need a GitHub account or to “use GitHub” to open it.
 

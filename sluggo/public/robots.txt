@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://jimminiglitch.github.io/sluggo/sitemap.xml
+Sitemap: https://sluggo.net/sitemap.xml
