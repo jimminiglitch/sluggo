@@ -1,3 +1,9 @@
+## [1.0.22](https://github.com/jimminiglitch/sluggo/compare/v1.0.21...v1.0.22) (2026-01-05)
+
+### Bug Fixes
+
+* update save shortcut description in tutorial ([17c4539](https://github.com/jimminiglitch/sluggo/commit/17c4539aece1b0cdb432234fe5ff21da2d060ca2))
+
 ## [1.0.21](https://github.com/jimminiglitch/sluggo/compare/v1.0.20...v1.0.21) (2026-01-05)
 
 ### Bug Fixes
