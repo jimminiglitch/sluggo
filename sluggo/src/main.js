@@ -906,6 +906,7 @@ function clearDualGroupId(groupId, scope) {
   scope.querySelectorAll(sel).forEach((el) => {
     delete el.dataset.dualGroup
     delete el.dataset.dualSide
+    el.querySelector?.(':scope > .dual-marker')?.remove?.()
   })
 }
 
@@ -1015,11 +1016,25 @@ function removeBlankActionLinesBetweenBlocks(leftBlock, rightBlock) {
   }
 }
 
+function ensureDualMarker(characterLine, { side }) {
+  if (!characterLine?.classList?.contains('el-character')) return
+  let marker = characterLine.querySelector(':scope > .dual-marker')
+  if (!marker) {
+    marker = document.createElement('span')
+    marker.className = 'dual-marker'
+    marker.setAttribute('aria-hidden', 'true')
+    marker.setAttribute('contenteditable', 'false')
+    characterLine.insertBefore(marker, characterLine.firstChild)
+  }
+  marker.title = side === 'right' ? 'Dual dialogue (Right)' : 'Dual dialogue (Left)'
+}
+
 function clearDualDialogueAttrs(block) {
   if (!block?.lines?.length) return
   block.lines.forEach((el) => {
     delete el.dataset.dualGroup
     delete el.dataset.dualSide
+    el.querySelector?.(':scope > .dual-marker')?.remove?.()
   })
 }
 
@@ -1028,6 +1043,7 @@ function applyDualDialogueAttrs(block, { groupId, side }) {
   block.lines.forEach((el) => {
     el.dataset.dualGroup = groupId
     el.dataset.dualSide = side
+    if (el.classList?.contains('el-character')) ensureDualMarker(el, { side })
   })
 }
 

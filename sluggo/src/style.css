@@ -666,22 +666,24 @@ body {
   position: relative;
 }
 
-.screenplay-page > .el-character[data-dual-group]::before {
-  content: '';
+.screenplay-page > .el-character[data-dual-group] > .dual-marker {
   position: absolute;
   left: -0.5in;
   top: 0.55em;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  background: currentColor;
-  opacity: 0.18;
+  background: var(--accent-color);
+  opacity: 0.55;
+  display: block;
+  pointer-events: auto;
+  cursor: help;
 }
 
-.screenplay-page > .el-character[data-dual-group][data-dual-side="right"]::before {
+.screenplay-page > .el-character[data-dual-group][data-dual-side="right"] > .dual-marker {
   background: transparent;
-  border: 1px solid currentColor;
-  opacity: 0.18;
+  border: 2px solid var(--accent-color);
+  opacity: 0.55;
 }
 
 .el-transition {
@@ -1359,8 +1361,8 @@ body {
   }
 
   /* Don't print editor-only dual markers */
-  .screenplay-page > .el-character[data-dual-group]::before {
-    content: none;
+  .screenplay-page > .el-character[data-dual-group] > .dual-marker {
+    display: none;
   }
 
   .dual-dialogue .dual-col {
