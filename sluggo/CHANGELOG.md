@@ -1,3 +1,9 @@
+## [1.0.24](https://github.com/jimminiglitch/sluggo/compare/v1.0.23...v1.0.24) (2026-01-05)
+
+### Features
+
+* enhance dual dialogue functionality with tooltip management and visual improvements ([fde6a5e](https://github.com/jimminiglitch/sluggo/commit/fde6a5e0e8116cdf6ed2c537d96836497ad1dfb0))
+
 ## [1.0.23](https://github.com/jimminiglitch/sluggo/compare/v1.0.22...v1.0.23) (2026-01-05)
 
 ### Features
