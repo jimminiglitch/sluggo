@@ -1888,6 +1888,7 @@ const menuActions = {
   'export-pdf': () => printScript(),
   'export-fdx': () => exportFDX(),
   'export-txt': () => exportPlainText(),
+  'export-json': () => exportJson(),
   'share-script': () => {
     shareCurrentScript()
   },
@@ -3933,6 +3934,13 @@ function exportPlainText() {
   const tab = getActiveTab()
   const base = stripScriptExtension(tab?.fileName) || 'screenplay'
   downloadFile(getPlainTextExport(), `${base}.txt`, 'text/plain')
+}
+
+function exportJson() {
+  const tab = getActiveTab()
+  const base = stripScriptExtension(tab?.fileName) || 'screenplay'
+  const json = JSON.stringify(getScriptDataForSave(), null, 2)
+  downloadFile(json, `${base}.json`, 'application/json')
 }
 
 function updatePageNumberAttributes() {
