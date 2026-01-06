@@ -1,3 +1,9 @@
+## [1.0.28](https://github.com/jimminiglitch/sluggo/compare/v1.0.27...v1.0.28) (2026-01-06)
+
+### Bug Fixes
+
+* remove legacy script extension from file type acceptance ([93b735f](https://github.com/jimminiglitch/sluggo/commit/93b735fe45f8490662aab3e881381932918e0aeb))
+
 ## [1.0.27](https://github.com/jimminiglitch/sluggo/compare/v1.0.26...v1.0.27) (2026-01-05)
 
 ### Bug Fixes
