@@ -3631,7 +3631,7 @@ async function openScript() {
       types: [{
         description: 'Scripts',
         accept: {
-          'application/x-sluggo+json': [PRIMARY_SCRIPT_EXTENSION, LEGACY_SCRIPT_EXTENSION],
+          'application/x-sluggo+json': [PRIMARY_SCRIPT_EXTENSION],
           'text/plain': ['.txt', '.fountain']
         }
       }]
@@ -3654,7 +3654,7 @@ async function openScript() {
       // Fallback
       const input = document.createElement('input')
       input.type = 'file'
-      input.accept = `${PRIMARY_SCRIPT_EXTENSION},${LEGACY_SCRIPT_EXTENSION},.txt,.fountain`
+      input.accept = `${PRIMARY_SCRIPT_EXTENSION},.txt,.fountain`
       input.onchange = (e) => {
         const file = e.target.files[0]
         if (file) {
