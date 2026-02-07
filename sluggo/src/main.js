@@ -431,9 +431,11 @@ const wordCountDisplay = document.getElementById('word-count')
 const pageCountDisplay = document.getElementById('page-count')
 const currentElementDisplay = document.getElementById('current-element')
 const saveStatusDisplay = document.getElementById('save-status')
+const autosaveStatusDisplay = document.getElementById('autosave-status')
 const sidebar = document.getElementById('sidebar')
 const titlePageView = document.getElementById('title-page-view')
 const tabBar = document.getElementById('tab-bar')
+const recentFilesEl = document.getElementById('recent-files')
 
 // When the user clicks the menu bar, the browser selection moves out of the editor.
 // Keep the last known editor selection so format actions can still apply.
@@ -647,6 +649,12 @@ const autocompleteBox = document.createElement('div')
 autocompleteBox.className = 'autocomplete-box'
 document.body.appendChild(autocompleteBox)
 
+document.addEventListener('mousedown', (e) => {
+  if (autocompleteBox.style.display !== 'block') return
+  if (autocompleteBox.contains(e.target)) return
+  hideAutocomplete()
+})
+
 const shortcutsModal = document.getElementById('shortcuts-modal')
 const aboutModal = document.getElementById('about-modal')
 const licenseModal = document.getElementById('license-modal')
@@ -655,12 +663,17 @@ const settingsModal = document.getElementById('settings-modal')
 const findModal = document.getElementById('find-modal')
 const historyModal = document.getElementById('history-modal')
 const historyListEl = document.getElementById('history-list')
+const historySearchInput = document.getElementById('history-search')
+const historyPreviewEl = document.getElementById('history-preview')
 
 const findEls = {
   title: document.getElementById('find-modal-title'),
   query: document.getElementById('find-query'),
   replace: document.getElementById('find-replace'),
   replaceRow: document.getElementById('replace-row'),
+  caseSensitive: document.getElementById('find-case'),
+  wholeWord: document.getElementById('find-whole'),
+  highlightAll: document.getElementById('find-highlight'),
   next: document.getElementById('find-next'),
   replaceOne: document.getElementById('replace-one'),
   replaceAll: document.getElementById('replace-all'),
@@ -678,12 +691,37 @@ const settingsEls = {
   sceneIntExtQuickPick: document.getElementById('setting-scene-intext-quickpick'),
   sceneIntExtStyle: document.getElementById('setting-scene-intext-style'),
   parentheticalAutoParens: document.getElementById('setting-parenthetical-auto-parens'),
-  smartBlankLineDefaults: document.getElementById('setting-smart-blank-line-defaults')
+  autoUppercaseLines: document.getElementById('setting-auto-uppercase'),
+  dialogueEnterCharacter: document.getElementById('setting-dialogue-enter-character'),
+  dialogueContinueName: document.getElementById('setting-dialogue-continue-name'),
+  smartBlankLineDefaults: document.getElementById('setting-smart-blank-line-defaults'),
+  autosaveHistorySnapshots: document.getElementById('setting-autosave-history')
 }
 
 function renderHistoryList() {
   if (!historyListEl) return
   historyListEl.innerHTML = ''
+
+  const domain = getHistoryDomainForContext()
+  const store = getHistoryStore(domain)
+  const undoStack = store?.undoStack || []
+  const redoStack = store?.redoStack || []
+  const snapshots = domain === 'body' ? (getActiveSnapshotsStore() || []) : []
+
+  const query = (historySearchInput?.value || '').trim().toLowerCase()
+  const matchesFilter = (state) => {
+    if (!query) return true
+    const label = String(state?.label || '').toLowerCase()
+    const inputType = String(state?.inputType || '').toLowerCase()
+    const ts = formatHistoryTimestamp(state?.createdAt)
+    const metadata = state?.scriptData?.metadata || {}
+    const metaText = [metadata.title, metadata.author, metadata.tagline].filter(Boolean).join(' ').toLowerCase()
+    return [label, inputType, ts, metaText].some(v => v && v.includes(query))
+  }
+
+  if (historyPreviewEl) {
+    historyPreviewEl.innerHTML = '<div class="history-preview-placeholder">Hover a snapshot to preview.</div>'
+  }
 
   const addSection = (title) => {
     const el = document.createElement('div')
@@ -707,6 +745,7 @@ function renderHistoryList() {
   }
 
   const addRow = (state, { allowRestore = true } = {}) => {
+    if (!matchesFilter(state)) return
     const row = document.createElement('div')
     row.className = 'history-row'
 
@@ -744,32 +783,64 @@ function renderHistoryList() {
       closeModal(historyModal)
     })
 
+    row.addEventListener('mouseenter', () => {
+      if (!historyPreviewEl) return
+      const metadata = state?.scriptData?.metadata || {}
+      const title = (metadata.title || '').trim()
+      const author = (metadata.author || '').trim()
+      let bodyText = ''
+      if (state?.domain !== 'title') {
+        try {
+          const html = String(state?.scriptData?.content || '')
+          const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
+          bodyText = (doc.body?.textContent || '').replace(/\s+/g, ' ').trim()
+        } catch (_) {
+          bodyText = ''
+        }
+      }
+      const snippet = bodyText.slice(0, 240)
+      const parts = []
+      if (title) parts.push(`Title: ${title}`)
+      if (author) parts.push(`Author: ${author}`)
+      if (snippet) parts.push(`\n${snippet}${bodyText.length > 240 ? '…' : ''}`)
+      historyPreviewEl.textContent = parts.join('\n') || 'No preview available.'
+    })
+
     row.appendChild(meta)
     row.appendChild(btn)
     historyListEl.appendChild(row)
   }
 
   addSection('Current')
-  addRow(captureHistoryState({ inputType: 'current', label: 'Current' }), { allowRestore: false })
+  addRow(captureHistoryState({ inputType: 'current', label: 'Current', domain }), { allowRestore: false })
 
   addSection('Undo')
-  if (historyUndoStack.length === 0) {
+  if (undoStack.length === 0) {
     addEmptyRow('No undo history yet.')
   } else {
-    historyUndoStack.slice().reverse().forEach(s => addRow(s))
+    undoStack.slice().reverse().forEach(s => addRow(s))
   }
 
   addSection('Redo')
-  if (historyRedoStack.length === 0) {
+  if (redoStack.length === 0) {
     addEmptyRow('No redo history.')
   } else {
-    historyRedoStack.slice().reverse().forEach(s => addRow(s))
+    redoStack.slice().reverse().forEach(s => addRow(s))
+  }
+
+  if (snapshots.length > 0) {
+    addSection('Autosave Snapshots')
+    snapshots.slice().reverse().forEach(s => addRow(s))
   }
 }
 
 function openHistoryModal() {
   renderHistoryList()
   openModal(historyModal)
+  if (historySearchInput) {
+    historySearchInput.focus()
+    historySearchInput.select()
+  }
 }
 
 const DEFAULT_SETTINGS = {
@@ -782,7 +853,11 @@ const DEFAULT_SETTINGS = {
   sceneHeadingsIntExtQuickPick: true,
   sceneHeadingsIntExtStyle: 'INT./EXT.',
   parentheticalsAutoParens: true,
-  smartBlankLineDefaults: true
+  autoUppercaseLines: true,
+  dialogueEnterCharacter: true,
+  dialogueContinueName: true,
+  smartBlankLineDefaults: true,
+  autosaveHistorySnapshots: false
 }
 
 let settings = { ...DEFAULT_SETTINGS }
@@ -816,7 +891,11 @@ function applySettingsToUI() {
   settingsEls.sceneIntExtQuickPick && (settingsEls.sceneIntExtQuickPick.checked = !!settings.sceneHeadingsIntExtQuickPick)
   settingsEls.sceneIntExtStyle && (settingsEls.sceneIntExtStyle.value = settings.sceneHeadingsIntExtStyle || 'INT./EXT.')
   settingsEls.parentheticalAutoParens && (settingsEls.parentheticalAutoParens.checked = !!settings.parentheticalsAutoParens)
+  settingsEls.autoUppercaseLines && (settingsEls.autoUppercaseLines.checked = !!settings.autoUppercaseLines)
+  settingsEls.dialogueEnterCharacter && (settingsEls.dialogueEnterCharacter.checked = !!settings.dialogueEnterCharacter)
+  settingsEls.dialogueContinueName && (settingsEls.dialogueContinueName.checked = !!settings.dialogueContinueName)
   settingsEls.smartBlankLineDefaults && (settingsEls.smartBlankLineDefaults.checked = !!settings.smartBlankLineDefaults)
+  settingsEls.autosaveHistorySnapshots && (settingsEls.autosaveHistorySnapshots.checked = !!settings.autosaveHistorySnapshots)
 
   document.body.classList.toggle('print-include-title-page', !!settings.includeTitlePageInPrint)
   document.body.classList.toggle('print-page-numbers', !!settings.showPageNumbersInPrint)
@@ -1060,32 +1139,32 @@ function toggleDualDialogueAtCursor() {
     const page = left.start?.parentElement
     if (!page) return
 
-    recordHistoryCheckpoint({ inputType: 'format' })
-
     const leftGroup = left.lines?.[0]?.dataset?.dualGroup
     const rightGroup = right.lines?.[0]?.dataset?.dualGroup
     const isAlreadyDualPair = leftGroup && rightGroup && leftGroup === rightGroup
 
     if (isAlreadyDualPair) {
-      clearDualGroupId(leftGroup, page)
-      flashSaveStatus('Dual dialogue: Off', { accent: false })
-      markDirty()
-      return
+      return withHistoryTransaction({ inputType: 'format', label: 'Dual dialogue' }, () => {
+        clearDualGroupId(leftGroup, page)
+        flashSaveStatus('Dual dialogue: Off', { accent: false })
+        markDirty()
+      })
     }
 
     // If either side is already part of some dual group, clear those groups first.
-    if (leftGroup) clearDualGroupId(leftGroup, page)
-    if (rightGroup && rightGroup !== leftGroup) clearDualGroupId(rightGroup, page)
+    return withHistoryTransaction({ inputType: 'format', label: 'Dual dialogue' }, () => {
+      if (leftGroup) clearDualGroupId(leftGroup, page)
+      if (rightGroup && rightGroup !== leftGroup) clearDualGroupId(rightGroup, page)
 
-    // Dual groups must be contiguous for print wrapping; remove spacer blank lines.
-    removeBlankActionLinesBetweenBlocks(left, right)
+      // Dual groups must be contiguous for print wrapping; remove spacer blank lines.
+      removeBlankActionLinesBetweenBlocks(left, right)
 
-    const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
-    applyDualDialogueAttrs(left, { groupId, side: 'left' })
-    applyDualDialogueAttrs(right, { groupId, side: 'right' })
-    flashSaveStatus('Dual dialogue: On', { accent: false })
-    markDirty()
-    return
+      const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
+      applyDualDialogueAttrs(left, { groupId, side: 'left' })
+      applyDualDialogueAttrs(right, { groupId, side: 'right' })
+      flashSaveStatus('Dual dialogue: On', { accent: false })
+      markDirty()
+    })
   }
 
   const line = getCurrentLine() || ensureLineExists()
@@ -1094,13 +1173,13 @@ function toggleDualDialogueAtCursor() {
   // If we're already inside a dual group, toggling should turn it off.
   const activeGroup = line?.dataset?.dualGroup
   if (activeGroup) {
-    recordHistoryCheckpoint({ inputType: 'format' })
-    const page = getCurrentPage()
-    const scope = (page && page.classList?.contains('screenplay-page')) ? page : editor
-    clearDualGroupId(activeGroup, scope)
-    flashSaveStatus('Dual dialogue: Off', { accent: false })
-    markDirty()
-    return
+    return withHistoryTransaction({ inputType: 'format', label: 'Dual dialogue' }, () => {
+      const page = getCurrentPage()
+      const scope = (page && page.classList?.contains('screenplay-page')) ? page : editor
+      clearDualGroupId(activeGroup, scope)
+      flashSaveStatus('Dual dialogue: Off', { accent: false })
+      markDirty()
+    })
   }
 
   const a = getDialogueBlockFromLine(line)
@@ -1125,17 +1204,17 @@ function toggleDualDialogueAtCursor() {
     return
   }
 
-  recordHistoryCheckpoint({ inputType: 'format' })
+  return withHistoryTransaction({ inputType: 'format', label: 'Dual dialogue' }, () => {
+    // Dual groups must be contiguous for print wrapping; remove spacer blank lines.
+    removeBlankActionLinesBetweenBlocks(left, right)
 
-  // Dual groups must be contiguous for print wrapping; remove spacer blank lines.
-  removeBlankActionLinesBetweenBlocks(left, right)
+    const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    applyDualDialogueAttrs(left, { groupId, side: 'left' })
+    applyDualDialogueAttrs(right, { groupId, side: 'right' })
+    flashSaveStatus('Dual dialogue: On', { accent: false })
 
-  const groupId = `dual_${Date.now()}_${Math.random().toString(16).slice(2)}`
-  applyDualDialogueAttrs(left, { groupId, side: 'left' })
-  applyDualDialogueAttrs(right, { groupId, side: 'right' })
-  flashSaveStatus('Dual dialogue: On', { accent: false })
-
-  markDirty()
+    markDirty()
+  })
 }
 
 function prepareDualDialogueForPrint() {
@@ -1310,6 +1389,10 @@ function closeModal(modal) {
   modal.classList.add('hidden')
   modal.setAttribute('aria-hidden', 'true')
 
+  if (modal === findModal) {
+    clearFindHighlights()
+  }
+
   if (activeModal === modal) activeModal = null
 
   const candidate = modalReturnFocusEl
@@ -1393,12 +1476,40 @@ function isNativeScriptFileName(fileName) {
 // UNDO / REDO (custom history to include formatting)
 // ============================================
 const HISTORY_LIMIT = 200
-let historyUndoStack = []
-let historyRedoStack = []
+const HISTORY_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 14
+const HISTORY_SNAPSHOT_LIMIT = 30
+const HISTORY_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30
 let historyIsRestoring = false
-let historyLastRecordAt = 0
-let historyLastInputType = ''
 let historyIdCounter = 1
+let historyTransactionDepth = 0
+let lastHistoryDomain = 'body'
+
+function createHistoryStore() {
+  return {
+    undoStack: [],
+    redoStack: [],
+    lastRecordAt: 0,
+    lastInputType: ''
+  }
+}
+
+function getHistoryStore(domain = 'body') {
+  const tab = getActiveTab()
+  if (!tab) return null
+  if (domain === 'title') {
+    if (!tab.titleHistory) tab.titleHistory = createHistoryStore()
+    return tab.titleHistory
+  }
+  if (!tab.history) tab.history = createHistoryStore()
+  return tab.history
+}
+
+function getActiveSnapshotsStore() {
+  const tab = getActiveTab()
+  if (!tab) return null
+  if (!Array.isArray(tab.historySnapshots)) tab.historySnapshots = []
+  return tab.historySnapshots
+}
 
 function createHistoryId() {
   historyIdCounter += 1
@@ -1427,57 +1538,152 @@ function getNodeByPath(root, path) {
   return cur
 }
 
+function isSelectionBackward(sel) {
+  if (!sel || sel.rangeCount === 0) return false
+  if (sel.isCollapsed) return false
+  const anchorNode = sel.anchorNode
+  const focusNode = sel.focusNode
+  if (!anchorNode || !focusNode) return false
+  if (anchorNode === focusNode) return sel.anchorOffset > sel.focusOffset
+  if (anchorNode.nodeType === Node.TEXT_NODE && focusNode.nodeType === Node.TEXT_NODE) {
+    return compareDomOrder(anchorNode, focusNode) > 0
+  }
+  const a = anchorNode.nodeType === Node.TEXT_NODE ? anchorNode.parentElement : anchorNode
+  const f = focusNode.nodeType === Node.TEXT_NODE ? focusNode.parentElement : focusNode
+  if (!a || !f) return false
+  return compareDomOrder(a, f) > 0
+}
+
 function captureSelectionSnapshot() {
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return null
   const range = sel.getRangeAt(0)
   const container = range.startContainer
   if (!editor || !editor.contains(container)) return null
-  const path = getDomPath(container, editor)
-  if (!path) return null
+
+  const anchorPath = getDomPath(sel.anchorNode, editor)
+  const focusPath = getDomPath(sel.focusNode, editor)
+  if (!anchorPath || !focusPath) return null
+
   return {
-    path,
-    offset: range.startOffset
+    anchorPath,
+    anchorOffset: sel.anchorOffset,
+    focusPath,
+    focusOffset: sel.focusOffset,
+    isCollapsed: sel.isCollapsed,
+    isBackward: isSelectionBackward(sel)
   }
 }
 
 function restoreSelectionSnapshot(snapshot) {
   if (!snapshot) return
-  const node = getNodeByPath(editor, snapshot.path)
-  if (!node) return
   const sel = window.getSelection()
   if (!sel) return
-  const range = document.createRange()
 
-  if (node.nodeType === Node.TEXT_NODE) {
-    range.setStart(node, Math.max(0, Math.min(snapshot.offset, node.nodeValue?.length ?? 0)))
-  } else {
+  const anchorNode = getNodeByPath(editor, snapshot.anchorPath)
+  const focusNode = getNodeByPath(editor, snapshot.focusPath)
+  if (!anchorNode || !focusNode) return
+
+  const clampOffset = (node, offset) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return Math.max(0, Math.min(offset, node.nodeValue?.length ?? 0))
+    }
     const max = node.childNodes?.length ?? 0
-    range.setStart(node, Math.max(0, Math.min(snapshot.offset, max)))
+    return Math.max(0, Math.min(offset, max))
   }
-  range.collapse(true)
+
+  const anchorOffset = clampOffset(anchorNode, snapshot.anchorOffset)
+  const focusOffset = clampOffset(focusNode, snapshot.focusOffset)
+
   sel.removeAllRanges()
+
+  if (typeof sel.setBaseAndExtent === 'function') {
+    sel.setBaseAndExtent(
+      snapshot.isBackward ? focusNode : anchorNode,
+      snapshot.isBackward ? focusOffset : anchorOffset,
+      snapshot.isBackward ? anchorNode : focusNode,
+      snapshot.isBackward ? anchorOffset : focusOffset
+    )
+    return
+  }
+
+  const range = document.createRange()
+  range.setStart(anchorNode, anchorOffset)
+  range.setEnd(focusNode, focusOffset)
   sel.addRange(range)
 }
 
-function captureHistoryState({ inputType = '', label = '' } = {}) {
-  // Only capture body content + metadata (formatting lives in body DOM).
-  const scriptData = getScriptData()
-  const selection = captureSelectionSnapshot()
+function getTitlePageMetadata() {
+  const readValue = (id) => {
+    const el = document.getElementById(id)
+    return el?.value ?? ''
+  }
+
+  return {
+    title: readValue('input-title'),
+    tagline: readValue('input-tagline'),
+    author: readValue('input-author'),
+    contact: readValue('input-contact'),
+    date: readValue('input-date'),
+    rights: readValue('input-rights')
+  }
+}
+
+function captureHistoryState({ inputType = '', label = '', domain = 'body' } = {}) {
+  const selection = (domain === 'body') ? captureSelectionSnapshot() : null
+  const scriptData = domain === 'title'
+    ? { metadata: getTitlePageMetadata() }
+    : getScriptData()
+
   return {
     id: createHistoryId(),
     createdAt: Date.now(),
     inputType: inputType || '',
     label: label || '',
+    domain,
     scriptData,
     selection
   }
+}
+
+function captureHistoryStateFromData({ inputType = '', label = '', domain = 'body', scriptData = null } = {}) {
+  if (!scriptData || typeof scriptData !== 'object') return null
+  return {
+    id: createHistoryId(),
+    createdAt: Date.now(),
+    inputType: inputType || '',
+    label: label || '',
+    domain,
+    scriptData,
+    selection: null
+  }
+}
+
+function applyTitlePageMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object') return
+  const titleEl = document.getElementById('input-title')
+  if (titleEl) titleEl.value = metadata.title || ''
+  const taglineEl = document.getElementById('input-tagline')
+  if (taglineEl) taglineEl.value = metadata.tagline || ''
+  const authorEl = document.getElementById('input-author')
+  if (authorEl) authorEl.value = metadata.author || ''
+  const contactEl = document.getElementById('input-contact')
+  if (contactEl) contactEl.value = metadata.contact || ''
+  const dateEl = document.getElementById('input-date')
+  if (dateEl) dateEl.value = metadata.date || ''
+  const rightsEl = document.getElementById('input-rights')
+  if (rightsEl) rightsEl.value = metadata.rights || ''
+  scheduleTitlePageTextareaResize()
 }
 
 function restoreHistoryState(state) {
   if (!state) return
   historyIsRestoring = true
   try {
+    if (state.domain === 'title') {
+      applyTitlePageMetadata(state.scriptData?.metadata)
+      return
+    }
     loadScriptData(state.scriptData)
     configureLoadedPages()
     updatePageNumberAttributes()
@@ -1489,33 +1695,103 @@ function restoreHistoryState(state) {
   }
 }
 
-function recordHistoryCheckpoint({ inputType = '' } = {}) {
+function getHistoryDomainForContext() {
+  if (isTitlePageCaretActive()) return 'title'
+  if (typeof isEditorActiveForHistory === 'function' && isEditorActiveForHistory()) return 'body'
+  return lastHistoryDomain
+}
+
+function pruneHistoryStack(stack, { limit = HISTORY_LIMIT, maxAgeMs = HISTORY_MAX_AGE_MS } = {}) {
+  if (!Array.isArray(stack)) return
+  const now = Date.now()
+  const filtered = stack.filter(state => (now - (state?.createdAt || 0)) <= maxAgeMs)
+  if (filtered.length > limit) {
+    stack.splice(0, stack.length, ...filtered.slice(filtered.length - limit))
+  } else if (filtered.length !== stack.length) {
+    stack.splice(0, stack.length, ...filtered)
+  }
+}
+
+function pruneSnapshots(stack) {
+  pruneHistoryStack(stack, { limit: HISTORY_SNAPSHOT_LIMIT, maxAgeMs: HISTORY_SNAPSHOT_MAX_AGE_MS })
+}
+
+function isStructuralHistoryInput(inputType) {
+  const type = String(inputType || '')
+  if (!type) return false
+  if (type === 'format') return true
+  if (type === 'history-restore') return true
+  if (type === 'insertParagraph' || type === 'insertLineBreak') return true
+  if (type === 'insertFromPaste' || type === 'insertFromDrop') return true
+  if (type === 'deleteByCut') return true
+  return false
+}
+
+function shouldCoalesceHistory({ store, inputType, data, force = false } = {}) {
+  if (force) return false
+  if (!store) return true
+  if (historyTransactionDepth > 0) return true
+
+  const type = String(inputType || '')
+  if (!type) return false
+  if (isStructuralHistoryInput(type)) return false
+
+  const now = Date.now()
+  const sameType = type === store.lastInputType
+  const withinWindow = (now - store.lastRecordAt) < 900
+
+  if (!sameType || !withinWindow) return false
+
+  const text = String(data || '')
+  if (text && /[\s.!?]/.test(text)) return false
+
+  return true
+}
+
+function withHistoryTransaction({ inputType = 'format', label = '', domain = null } = {}, fn) {
+  historyTransactionDepth += 1
+  try {
+    recordHistoryCheckpoint({ inputType, label, domain, force: true })
+    return fn()
+  } finally {
+    historyTransactionDepth = Math.max(0, historyTransactionDepth - 1)
+    updateHistoryUIState()
+  }
+}
+
+function recordHistoryCheckpoint({ inputType = '', label = '', domain = null, data = '', force = false } = {}) {
   if (historyIsRestoring) return
 
-  // Coalesce rapid typing into a single undo step.
-  const now = Date.now()
-  const coalesce = inputType && inputType === historyLastInputType && (now - historyLastRecordAt) < 750
-  if (coalesce) return
+  const resolvedDomain = domain || getHistoryDomainForContext()
+  const store = getHistoryStore(resolvedDomain)
+  if (!store) return
+  lastHistoryDomain = resolvedDomain
 
-  const state = captureHistoryState({ inputType })
-  const last = historyUndoStack[historyUndoStack.length - 1]
+  if (shouldCoalesceHistory({ store, inputType, data, force })) return
+
+  const now = Date.now()
+  const state = captureHistoryState({ inputType, label, domain: resolvedDomain })
+  const last = store.undoStack[store.undoStack.length - 1]
   // Avoid duplicates.
   if (last && last.scriptData?.content === state.scriptData?.content && JSON.stringify(last.scriptData?.metadata) === JSON.stringify(state.scriptData?.metadata)) {
     return
   }
 
-  historyUndoStack.push(state)
-  if (historyUndoStack.length > HISTORY_LIMIT) historyUndoStack.shift()
-  historyRedoStack = []
-  historyLastRecordAt = now
-  historyLastInputType = inputType || ''
+  store.undoStack.push(state)
+  pruneHistoryStack(store.undoStack)
+  store.redoStack = []
+  store.lastRecordAt = now
+  store.lastInputType = inputType || ''
+  updateHistoryUIState()
 }
 
-function pushUndoState(state, { clearRedo = true } = {}) {
+function pushUndoState(state, { clearRedo = true, domain = null } = {}) {
   if (!state) return
-  historyUndoStack.push(state)
-  if (historyUndoStack.length > HISTORY_LIMIT) historyUndoStack.shift()
-  if (clearRedo) historyRedoStack = []
+  const store = getHistoryStore(domain || state.domain || 'body')
+  if (!store) return
+  store.undoStack.push(state)
+  pruneHistoryStack(store.undoStack)
+  if (clearRedo) store.redoStack = []
 }
 
 function formatHistoryTimestamp(ms) {
@@ -1536,31 +1812,64 @@ function getHistoryFallbackLabel(state) {
   if (inputType === 'undo') return 'Undo'
   if (inputType === 'redo') return 'Redo'
   if (inputType === 'current') return 'Current'
+  if (inputType === 'autosave') return 'Autosave'
   if (inputType.startsWith('insert')) return 'Typing'
   if (inputType.startsWith('delete')) return 'Delete'
   return inputType
 }
 
-function historyUndo() {
-  if (historyUndoStack.length === 0) return
-  const current = captureHistoryState({ inputType: 'undo' })
-  const prev = historyUndoStack.pop()
-  historyRedoStack.push(current)
+function historyUndo(domain = null) {
+  const resolvedDomain = domain || getHistoryDomainForContext()
+  const store = getHistoryStore(resolvedDomain)
+  if (!store || store.undoStack.length === 0) return
+  lastHistoryDomain = resolvedDomain
+  const current = captureHistoryState({ inputType: 'undo', domain: resolvedDomain })
+  const prev = store.undoStack.pop()
+  store.redoStack.push(current)
   restoreHistoryState(prev)
+  updateHistoryUIState()
 }
 
-function historyRedo() {
-  if (historyRedoStack.length === 0) return
-  const current = captureHistoryState({ inputType: 'redo' })
-  const next = historyRedoStack.pop()
-  pushUndoState(current, { clearRedo: false })
+function historyRedo(domain = null) {
+  const resolvedDomain = domain || getHistoryDomainForContext()
+  const store = getHistoryStore(resolvedDomain)
+  if (!store || store.redoStack.length === 0) return
+  lastHistoryDomain = resolvedDomain
+  const current = captureHistoryState({ inputType: 'redo', domain: resolvedDomain })
+  const next = store.redoStack.pop()
+  pushUndoState(current, { clearRedo: false, domain: resolvedDomain })
   restoreHistoryState(next)
+  updateHistoryUIState()
 }
 
 function restoreFromHistory(state) {
   if (!state) return
-  pushUndoState(captureHistoryState({ inputType: 'history-restore', label: 'Before restore' }))
+  const domain = state.domain || getHistoryDomainForContext()
+  lastHistoryDomain = domain
+  pushUndoState(captureHistoryState({ inputType: 'history-restore', label: 'Before restore', domain }), { domain })
   restoreHistoryState(state)
+  updateHistoryUIState()
+}
+
+function updateHistoryUIState() {
+  const domain = getHistoryDomainForContext()
+  const store = getHistoryStore(domain)
+  const undoAvailable = !!(store && store.undoStack.length > 0)
+  const redoAvailable = !!(store && store.redoStack.length > 0)
+
+  const undoBtn = document.querySelector('[data-action="undo"]')
+  const redoBtn = document.querySelector('[data-action="redo"]')
+
+  if (undoBtn) {
+    undoBtn.disabled = !undoAvailable
+    undoBtn.setAttribute('aria-disabled', (!undoAvailable).toString())
+    undoBtn.title = undoAvailable ? '' : (domain === 'title' ? 'Nothing to undo (title page)' : 'Nothing to undo')
+  }
+  if (redoBtn) {
+    redoBtn.disabled = !redoAvailable
+    redoBtn.setAttribute('aria-disabled', (!redoAvailable).toString())
+    redoBtn.title = redoAvailable ? '' : (domain === 'title' ? 'Nothing to redo (title page)' : 'Nothing to redo')
+  }
 }
 
 function getDefaultAutocompleteData() {
@@ -1702,7 +2011,15 @@ function createTab({ fileName, fileHandle = null, data, isDirty = false }) {
     fileHandle,
     data,
     isDirty,
-    autocompleteData: getDefaultAutocompleteData()
+    autocompleteData: getDefaultAutocompleteData(),
+    history: {
+      undoStack: [],
+      redoStack: [],
+      lastRecordAt: 0,
+      lastInputType: ''
+    },
+    titleHistory: createHistoryStore(),
+    historySnapshots: []
   })
   return id
 }
@@ -1892,6 +2209,7 @@ const menuActions = {
   'share-script': () => {
     shareCurrentScript()
   },
+  'recent-clear': () => clearRecentFiles(),
 
   // Edit
   'undo': () => historyUndo(),
@@ -2112,6 +2430,30 @@ let isMenuOpen = false
 
 const menuBar = document.querySelector('.menu-bar')
 let lastOpenedMenuTrigger = null
+const menuItems = Array.from(document.querySelectorAll('.menu-item'))
+const menuTriggers = menuItems.map(item => item.querySelector('.menu-trigger')).filter(Boolean)
+
+function openMenuAtIndex(index, { focusFirst = false } = {}) {
+  const trigger = menuTriggers[index]
+  if (!trigger) return
+  const item = trigger.closest('.menu-item')
+  if (!item) return
+  closeAllMenus()
+  isMenuOpen = true
+  lastOpenedMenuTrigger = trigger
+  item.querySelector('.menu-dropdown').style.display = 'block'
+  trigger.setAttribute('aria-expanded', 'true')
+  if (focusFirst) {
+    const first = item.querySelector('.menu-dropdown button')
+    first?.focus()
+  } else {
+    trigger.focus()
+  }
+}
+
+function getMenuTriggerIndex(trigger) {
+  return menuTriggers.findIndex(t => t === trigger)
+}
 
 // Attach menu handlers
 document.querySelectorAll('.menu-item').forEach(item => {
@@ -2138,11 +2480,56 @@ document.querySelectorAll('.menu-item').forEach(item => {
         const first = dropdown.querySelector('button')
         first?.focus()
       }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        const idx = getMenuTriggerIndex(trigger)
+        if (idx >= 0) openMenuAtIndex((idx + 1) % menuTriggers.length)
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        const idx = getMenuTriggerIndex(trigger)
+        if (idx >= 0) openMenuAtIndex((idx - 1 + menuTriggers.length) % menuTriggers.length)
+      }
       if (e.key === 'Escape') {
         e.preventDefault()
         isMenuOpen = false
         closeAllMenus()
         trigger.focus()
+      }
+    })
+
+    dropdown.addEventListener('keydown', (e) => {
+      const items = Array.from(dropdown.querySelectorAll('button'))
+      if (items.length === 0) return
+      const currentIndex = items.indexOf(document.activeElement)
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const next = items[(currentIndex + 1) % items.length]
+        next?.focus()
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const prev = items[(currentIndex - 1 + items.length) % items.length]
+        prev?.focus()
+      }
+      if (e.key === 'Home') {
+        e.preventDefault()
+        items[0]?.focus()
+      }
+      if (e.key === 'End') {
+        e.preventDefault()
+        items[items.length - 1]?.focus()
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        const idx = getMenuTriggerIndex(trigger)
+        if (idx >= 0) openMenuAtIndex((idx + 1) % menuTriggers.length, { focusFirst: true })
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        const idx = getMenuTriggerIndex(trigger)
+        if (idx >= 0) openMenuAtIndex((idx - 1 + menuTriggers.length) % menuTriggers.length, { focusFirst: true })
       }
     })
   }
@@ -2194,6 +2581,38 @@ document.querySelectorAll('[data-action]').forEach(btn => {
   })
 })
 
+const actionShortcuts = {
+  'new': 'Control+N',
+  'open': 'Control+O',
+  'save': 'Control+S',
+  'save-as': 'Control+Shift+S',
+  'undo': 'Control+Z',
+  'redo': 'Control+Y Control+Shift+Z',
+  'find': 'Control+F',
+  'replace': 'Control+H',
+  'export-pdf': 'Control+P',
+  'toggle-sidebar': 'Control+B',
+  'toggle-dark-mode': 'Control+D',
+  'zoom-in': 'Control+=',
+  'zoom-out': 'Control+-',
+  'zoom-reset': 'Control+0',
+  'el-scene-heading': 'Control+1',
+  'el-action': 'Control+2',
+  'el-character': 'Control+3',
+  'el-parenthetical': 'Control+4',
+  'el-dialogue': 'Control+5',
+  'el-transition': 'Control+6',
+  'toggle-dual-dialogue': 'Control+Shift+L',
+  'settings': 'Control+Comma',
+  'show-shortcuts': 'Control+/'
+}
+
+document.querySelectorAll('[data-action]').forEach(btn => {
+  const action = btn.dataset.action
+  const shortcut = actionShortcuts[action]
+  if (shortcut) btn.setAttribute('aria-keyshortcuts', shortcut)
+})
+
 function closeAllMenus() {
   document.querySelectorAll('.menu-dropdown').forEach(el => el.style.display = '')
   document.querySelectorAll('.menu-trigger[aria-expanded="true"]').forEach(t => t.setAttribute('aria-expanded', 'false'))
@@ -2232,6 +2651,9 @@ document.addEventListener('click', () => {
 document.addEventListener('selectionchange', () => {
   rememberEditorSelection()
   scheduleQuickBarUpdate()
+  if (isTitlePageCaretActive()) lastHistoryDomain = 'title'
+  else if (isEditorActiveForHistory()) lastHistoryDomain = 'body'
+  updateHistoryUIState()
 })
 
 // Extra coverage: on some browsers, selectionchange doesn’t fire for every tap/click.
@@ -2244,8 +2666,37 @@ darkModeToggleBtn?.addEventListener('click', () => {
 
 updateViewToggleUI()
 
-document.getElementById('input-author')?.addEventListener('input', () => {
-  scheduleTitlePageTextareaResize()
+const titlePageInputIds = [
+  'input-title',
+  'input-tagline',
+  'input-author',
+  'input-contact',
+  'input-date',
+  'input-rights'
+]
+
+titlePageInputIds.forEach((id) => {
+  const el = document.getElementById(id)
+  if (!el) return
+
+  el.addEventListener('beforeinput', (e) => {
+    if (historyIsRestoring) return
+    if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') return
+    recordHistoryCheckpoint({ inputType: e.inputType || '', domain: 'title', data: e.data })
+  }, { capture: true })
+
+  el.addEventListener('input', () => {
+    markDirty()
+    updateHistoryUIState()
+    if (el.tagName === 'TEXTAREA') {
+      scheduleTitlePageTextareaResize()
+    }
+  })
+
+  el.addEventListener('focus', () => {
+    lastHistoryDomain = 'title'
+    updateHistoryUIState()
+  })
 })
 
 window.addEventListener('resize', () => {
@@ -2272,6 +2723,37 @@ updatePageJumpOptions()
 const editorWrapper = document.querySelector('.editor-container')
 editorWrapper.addEventListener('scroll', () => {
   highlightActiveScene()
+  if (autocompleteBox.style.display === 'block') hideAutocomplete()
+})
+
+editorWrapper?.addEventListener('dragover', (e) => {
+  if (!e.dataTransfer?.types?.includes('Files')) return
+  e.preventDefault()
+  editorWrapper.classList.add('dragover')
+})
+
+editorWrapper?.addEventListener('dragleave', () => {
+  editorWrapper.classList.remove('dragover')
+})
+
+editorWrapper?.addEventListener('drop', async (e) => {
+  if (!e.dataTransfer?.files?.length) return
+  e.preventDefault()
+  editorWrapper.classList.remove('dragover')
+
+  const files = Array.from(e.dataTransfer.files)
+  for (const file of files) {
+    try {
+      const content = await file.text()
+      const data = isNativeScriptFileName(file.name)
+        ? JSON.parse(content)
+        : parsePlainTextToScriptData(content)
+      openScriptInNewTab({ fileName: file.name, fileHandle: null, data })
+      addRecentFileEntry({ fileName: file.name, data })
+    } catch (err) {
+      console.warn('Failed to open dropped file', err)
+    }
+  }
 })
 
 // Modal close handlers
@@ -2301,11 +2783,16 @@ document.getElementById('close-settings')?.addEventListener('click', () => {
 })
 
 findEls.close?.addEventListener('click', () => {
+  clearFindHighlights()
   closeModal(findModal)
 })
 
 document.getElementById('close-history')?.addEventListener('click', () => {
   closeModal(historyModal)
+})
+
+historySearchInput?.addEventListener('input', () => {
+  renderHistoryList()
 })
 
 settingsEls.includeTitlePage?.addEventListener('change', () => {
@@ -2363,8 +2850,32 @@ settingsEls.parentheticalAutoParens?.addEventListener('change', () => {
   saveSettings()
 })
 
+settingsEls.autoUppercaseLines?.addEventListener('change', () => {
+  settings.autoUppercaseLines = !!settingsEls.autoUppercaseLines.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
+settingsEls.dialogueEnterCharacter?.addEventListener('change', () => {
+  settings.dialogueEnterCharacter = !!settingsEls.dialogueEnterCharacter.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
+settingsEls.dialogueContinueName?.addEventListener('change', () => {
+  settings.dialogueContinueName = !!settingsEls.dialogueContinueName.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
 settingsEls.smartBlankLineDefaults?.addEventListener('change', () => {
   settings.smartBlankLineDefaults = !!settingsEls.smartBlankLineDefaults.checked
+  applySettingsToUI()
+  saveSettings()
+})
+
+settingsEls.autosaveHistorySnapshots?.addEventListener('change', () => {
+  settings.autosaveHistorySnapshots = !!settingsEls.autosaveHistorySnapshots.checked
   applySettingsToUI()
   saveSettings()
 })
@@ -2382,6 +2893,20 @@ document.querySelectorAll('.modal').forEach(modal => {
 // ============================================
 // KEYBOARD SHORTCUTS
 // ============================================
+function isEditorActiveForHistory() {
+  if (!editor) return false
+  const active = document.activeElement
+  if (active && editor.contains(active)) return true
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return false
+  const node = sel.anchorNode
+  return !!(node && editor.contains(node))
+}
+
+function isTitlePageActiveForHistory() {
+  return isTitlePageCaretActive()
+}
+
 document.addEventListener('keydown', (e) => {
   // Don't intercept if typing in inputs
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return
@@ -2393,6 +2918,7 @@ document.addEventListener('keydown', (e) => {
   if (ctrl) {
     switch (e.key.toLowerCase()) {
       case 'z':
+        if (!(isEditorActiveForHistory() || isTitlePageActiveForHistory())) return
         e.preventDefault()
         if (shift) {
           historyRedo()
@@ -2401,6 +2927,7 @@ document.addEventListener('keydown', (e) => {
         }
         break
       case 'y':
+        if (!(isEditorActiveForHistory() || isTitlePageActiveForHistory())) return
         e.preventDefault()
         historyRedo()
         break
@@ -2471,8 +2998,30 @@ let findState = {
   lastIndex: -1
 }
 
+let findHighlightsActive = false
+
 function setFindStatus(message) {
   if (findEls.status) findEls.status.textContent = message || ''
+}
+
+function escapeRegExp(str) {
+  return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function getFindOptions() {
+  return {
+    caseSensitive: !!findEls.caseSensitive?.checked,
+    wholeWord: !!findEls.wholeWord?.checked,
+    highlightAll: !!findEls.highlightAll?.checked
+  }
+}
+
+function buildFindRegex(query, { caseSensitive = false, wholeWord = false } = {}) {
+  const escaped = escapeRegExp(String(query || ''))
+  if (!escaped) return null
+  const pattern = wholeWord ? `\\b${escaped}\\b` : escaped
+  const flags = caseSensitive ? 'g' : 'gi'
+  return new RegExp(pattern, flags)
 }
 
 function getScriptTextNodes() {
@@ -2498,6 +3047,73 @@ function buildSearchIndex() {
     text += n.nodeValue || ''
   })
   return { nodes, starts, text }
+}
+
+function clearFindHighlights() {
+  if (!findHighlightsActive) return
+  document.querySelectorAll('mark.find-highlight[data-find-highlight="1"]').forEach(mark => {
+    const parent = mark.parentNode
+    if (!parent) return
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark)
+    parent.removeChild(mark)
+    parent.normalize()
+  })
+  findHighlightsActive = false
+}
+
+function applyFindHighlights(query, options) {
+  clearFindHighlights()
+  if (!options?.highlightAll) return 0
+  const regex = buildFindRegex(query, options)
+  if (!regex) return 0
+
+  const search = buildSearchIndex()
+  if (!search.text) return 0
+
+  const matches = []
+  let m
+  while ((m = regex.exec(search.text)) !== null) {
+    if (m[0].length === 0) {
+      regex.lastIndex += 1
+      continue
+    }
+    matches.push({ start: m.index, end: m.index + m[0].length })
+  }
+
+  if (matches.length === 0) return 0
+
+  const locate = (pos) => {
+    for (let i = search.nodes.length - 1; i >= 0; i--) {
+      const n = search.nodes[i]
+      const s = search.starts.get(n)
+      const len = (n.nodeValue || '').length
+      if (pos >= s && pos <= s + len) {
+        return { node: n, offset: Math.max(0, Math.min(len, pos - s)) }
+      }
+    }
+    return null
+  }
+
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const match = matches[i]
+    const a = locate(match.start)
+    const b = locate(match.end)
+    if (!a || !b || a.node !== b.node) continue
+    const range = document.createRange()
+    range.setStart(a.node, a.offset)
+    range.setEnd(b.node, b.offset)
+    const mark = document.createElement('mark')
+    mark.className = 'find-highlight'
+    mark.setAttribute('data-find-highlight', '1')
+    try {
+      range.surroundContents(mark)
+    } catch (_) {
+      // Ignore ranges that cannot be wrapped safely.
+    }
+  }
+
+  findHighlightsActive = true
+  return matches.length
 }
 
 function getSelectionGlobalOffset(search) {
@@ -2546,6 +3162,10 @@ function findNext(query, { wrap = true } = {}) {
     return false
   }
 
+  const options = getFindOptions()
+  const regex = buildFindRegex(q, options)
+  if (!regex) return false
+
   const search = buildSearchIndex()
   if (!search.text) {
     setFindStatus('Nothing to search.')
@@ -2553,26 +3173,36 @@ function findNext(query, { wrap = true } = {}) {
   }
 
   const from = Math.max(0, getSelectionGlobalOffset(search))
-  let idx = search.text.indexOf(q, from)
-  if (idx === -1 && wrap) {
-    idx = search.text.indexOf(q, 0)
+  regex.lastIndex = from
+  let match = regex.exec(search.text)
+  if (!match && wrap) {
+    regex.lastIndex = 0
+    match = regex.exec(search.text)
   }
-  if (idx === -1) {
+
+  const count = applyFindHighlights(q, options)
+
+  if (!match) {
     setFindStatus('No matches.')
     return false
   }
 
-  setSelectionFromGlobalRange(search, idx, idx + q.length)
-  setFindStatus(`Match found.`)
+  const idx = match.index
+  setSelectionFromGlobalRange(search, idx, idx + match[0].length)
+  setFindStatus(count > 0 ? `Match found. ${count} total.` : 'Match found.')
   findState.lastQuery = q
   findState.lastIndex = idx
   return true
 }
 
-function selectionMatchesQuery(query) {
+function selectionMatchesQuery(query, options) {
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return false
-  return (sel.toString() || '') === query
+  const text = sel.toString() || ''
+  const regex = buildFindRegex(query, { ...options, wholeWord: false })
+  if (!regex) return false
+  const exact = new RegExp(`^${regex.source}$`, regex.flags.replace('g', ''))
+  return exact.test(text)
 }
 
 function replaceCurrent(query, replacement) {
@@ -2583,7 +3213,9 @@ function replaceCurrent(query, replacement) {
     return false
   }
 
-  if (!selectionMatchesQuery(q)) {
+  const options = getFindOptions()
+
+  if (!selectionMatchesQuery(q, options)) {
     // If current selection isn't a match, find next first.
     const found = findNext(q)
     if (!found) return false
@@ -2605,15 +3237,21 @@ function replaceAll(query, replacement) {
     return 0
   }
 
+  const options = getFindOptions()
+  const regex = buildFindRegex(q, options)
+  if (!regex) return 0
+
   let count = 0
   const lines = Array.from(editor.querySelectorAll('.screenplay-page:not(.title-page-view) > div'))
   lines.forEach(line => {
     const text = line.textContent || ''
-    if (!text.includes(q)) return
-    const parts = text.split(q)
-    if (parts.length <= 1) return
-    count += parts.length - 1
-    const nextText = parts.join(r)
+    regex.lastIndex = 0
+    if (!regex.test(text)) return
+    regex.lastIndex = 0
+    const nextText = text.replace(regex, () => {
+      count += 1
+      return r
+    })
     if (nextText.trim() === '') {
       line.innerHTML = '<br>'
     } else {
@@ -2625,6 +3263,7 @@ function replaceAll(query, replacement) {
     markDirty()
     checkPageOverflow()
     updateUI()
+    clearFindHighlights()
     setFindStatus(`Replaced ${count} occurrence${count === 1 ? '' : 's'}.`)
   } else {
     setFindStatus('No matches.')
@@ -2640,6 +3279,7 @@ function openFindModal(isReplace) {
   if (findEls.replaceAll) findEls.replaceAll.style.display = isReplace ? '' : 'none'
   setFindStatus('')
   openModal(findModal, { focusEl: findEls.query })
+  applyFindHighlights(findEls.query?.value || '', getFindOptions())
 }
 
 findEls.next?.addEventListener('click', () => {
@@ -2660,6 +3300,16 @@ findEls.query?.addEventListener('keydown', (e) => {
     e.preventDefault()
     findNext(findEls.query.value || '')
   }
+})
+
+findEls.query?.addEventListener('input', () => {
+  applyFindHighlights(findEls.query?.value || '', getFindOptions())
+})
+
+[findEls.caseSensitive, findEls.wholeWord, findEls.highlightAll].forEach((el) => {
+  el?.addEventListener('change', () => {
+    applyFindHighlights(findEls.query?.value || '', getFindOptions())
+  })
 })
 
 findEls.replace?.addEventListener('keydown', (e) => {
@@ -3103,6 +3753,11 @@ function isTitlePageCaretActive() {
   return isFormFieldTarget(active) && isInsideTitlePage(active)
 }
 
+editor?.addEventListener('focusin', () => {
+  lastHistoryDomain = 'body'
+  updateHistoryUIState()
+})
+
 editor.addEventListener('keydown', (e) => {
   // Title page uses native inputs/textareas; don't hijack keys like Tab/Enter.
   if (isFormFieldTarget(e.target) || isInsideTitlePage(e.target)) return
@@ -3124,13 +3779,90 @@ editor.addEventListener('keydown', (e) => {
   }
 })
 
+function getCaretTextOffsetWithinLine(containerEl) {
+  try {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    const node = range?.startContainer
+    if (!node || !containerEl || !containerEl.contains(node)) return null
+    if (node.nodeType !== Node.TEXT_NODE) return null
+
+    let offset = 0
+    const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT)
+    let cur = walker.nextNode()
+    while (cur) {
+      if (cur === node) {
+        return offset + Math.max(0, Math.min(range.startOffset, cur.nodeValue?.length ?? 0))
+      }
+      offset += cur.nodeValue?.length ?? 0
+      cur = walker.nextNode()
+    }
+    return null
+  } catch (_) {
+    return null
+  }
+}
+
+function restoreCaretTextOffsetWithinLine(containerEl, targetOffset) {
+  if (!containerEl) return false
+  const sel = window.getSelection()
+  if (!sel) return false
+
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n))
+  const textNodes = []
+  const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT)
+  let cur = walker.nextNode()
+  while (cur) {
+    textNodes.push(cur)
+    cur = walker.nextNode()
+  }
+
+  if (textNodes.length === 0) return false
+
+  const fullLen = (containerEl.textContent || '').length
+  let remaining = clamp(Number(targetOffset) || 0, 0, fullLen)
+
+  for (const t of textNodes) {
+    const len = t.nodeValue?.length ?? 0
+    if (remaining <= len) {
+      const r = document.createRange()
+      r.setStart(t, clamp(remaining, 0, len))
+      r.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(r)
+      return true
+    }
+    remaining -= len
+  }
+
+  return false
+}
+
+function maybeUppercaseCurrentLine() {
+  if (!settings.autoUppercaseLines) return
+  const line = getCurrentLine()
+  if (!line) return
+  const upperClasses = ['el-scene-heading', 'el-character', 'el-transition', 'el-fade-in']
+  if (!upperClasses.some(cls => line.classList.contains(cls))) return
+
+  const raw = String(line.textContent || '')
+  const next = raw.toUpperCase()
+  if (raw === next) return
+
+  const caretOffset = getCaretTextOffsetWithinLine(line)
+  line.textContent = next
+  if (!line.textContent) line.innerHTML = '<br>'
+  if (caretOffset !== null) restoreCaretTextOffsetWithinLine(line, caretOffset)
+}
+
 // Capture history before any browser edit is applied to the contenteditable body.
 editor.addEventListener('beforeinput', (e) => {
   if (historyIsRestoring) return
   // Ignore IME composition + native history events.
   if (e.isComposing) return
   if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') return
-  recordHistoryCheckpoint({ inputType: e.inputType || '' })
+  recordHistoryCheckpoint({ inputType: e.inputType || '', data: e.data })
 }, { capture: true })
 
 function handleBackspace(e) {
@@ -3242,6 +3974,14 @@ function checkPageOverflow() {
           }
         }
 
+        // Avoid orphaned scene headings at the bottom of a page.
+        if (lastChild.classList?.contains('el-action')) {
+          const maybeHeading = lastChild.previousElementSibling
+          if (maybeHeading?.classList?.contains('el-scene-heading')) {
+            moveGroup = [lastChild, maybeHeading]
+          }
+        }
+
         if (continuationCharacterText) {
           const stripContd = (s) => String(s || '').replace(/\s*\(CONT'D\)\s*/gi, ' ').replace(/\s+/g, ' ').trim()
           const base = stripContd(continuationCharacterText)
@@ -3290,7 +4030,9 @@ function checkPageOverflow() {
 }
 
 editor.addEventListener('input', (e) => {
+  if (findHighlightsActive) clearFindHighlights()
   markDirty()
+  maybeUppercaseCurrentLine()
   checkPageOverflow()
   updatePageNumberAttributes()
 
@@ -3311,6 +4053,7 @@ editor.addEventListener('input', (e) => {
 
 function handleEnter(e) {
   e.preventDefault()
+  hideAutocomplete()
 
   // Since we preventDefault(), the browser won't emit a useful beforeinput
   // for history. Capture a checkpoint now.
@@ -3358,18 +4101,53 @@ function handleEnter(e) {
     return 'action'
   }
 
+  const getPrevCharacterName = (fromLine) => {
+    let cursor = fromLine?.previousElementSibling
+    while (cursor) {
+      if (cursor.classList?.contains('el-character')) {
+        const raw = (cursor.textContent || '').trim()
+        return raw.replace(/\s*\(CONT'D\)\s*/gi, '').trim()
+      }
+      cursor = cursor.previousElementSibling
+    }
+
+    const page = fromLine?.parentElement
+    let prevPage = page?.previousElementSibling
+    while (prevPage && prevPage.classList?.contains('title-page-view')) {
+      prevPage = prevPage.previousElementSibling
+    }
+    if (prevPage?.classList?.contains('screenplay-page')) {
+      let cursor2 = prevPage.lastElementChild
+      while (cursor2) {
+        if (cursor2.classList?.contains('el-character')) {
+          const raw = (cursor2.textContent || '').trim()
+          return raw.replace(/\s*\(CONT'D\)\s*/gi, '').trim()
+        }
+        cursor2 = cursor2.previousElementSibling
+      }
+    }
+    return ''
+  }
+
   // Determine new element
   let newElement = currentElement
   const transitions = {
     'scene-heading': 'action',
     'character': 'dialogue',
-    'dialogue': 'action',
+    'dialogue': settings.dialogueEnterCharacter ? 'character' : 'dialogue',
     'parenthetical': 'dialogue',
     'transition': 'scene-heading'
   }
   if (movedTrailingContent) {
     // Split line: keep the same element type for the moved content.
     newElement = getElementForLine(currentLine)
+  } else if (currentElement === 'dialogue') {
+    const isBlank = (currentLine?.textContent || '').trim() === ''
+    if (isBlank) {
+      newElement = 'action'
+    } else {
+      newElement = transitions[currentElement] || 'action'
+    }
   } else {
     // End-of-line behavior: keep the existing smart transitions.
     newElement = transitions[currentElement] || 'action'
@@ -3387,6 +4165,14 @@ function handleEnter(e) {
     newPara.innerHTML = '<br>'
   }
 
+  // Auto-continue character names after dialogue if enabled.
+  if (!movedTrailingContent && newElement === 'character' && settings.dialogueContinueName) {
+    const prevName = getPrevCharacterName(currentLine)
+    if (prevName) {
+      newPara.textContent = prevName
+    }
+  }
+
   const page = getCurrentPage()
   if (currentLine && currentLine.parentElement === page) {
     currentLine.after(newPara)
@@ -3400,6 +4186,12 @@ function handleEnter(e) {
   range.collapse(true)
   selection.removeAllRanges()
   selection.addRange(range)
+
+  if (newElement === 'character' && settings.dialogueContinueName && (newPara.textContent || '').trim()) {
+    range.selectNodeContents(newPara)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
 
   // Check if we pushed to new page
   checkPageOverflow()
@@ -3532,6 +4324,82 @@ editor.addEventListener('paste', (e) => {
 // ============================================
 // SAVE / LOAD
 // ============================================
+const RECENT_FILES_KEY = 'sluggo_recent_files'
+const RECENT_FILES_LIMIT = 8
+
+function bakeTabDataForStorage(data) {
+  if (!data || typeof data !== 'object') return data
+  const content = typeof data.content === 'string' ? data.content : ''
+  return { ...data, content: bakeDisplayCasingIntoContentHtml(content) }
+}
+
+function loadRecentFiles() {
+  try {
+    const raw = localStorage.getItem(RECENT_FILES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (_) {
+    return []
+  }
+}
+
+function saveRecentFiles(list) {
+  try {
+    localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(list))
+  } catch (_) {
+    // Ignore
+  }
+}
+
+function addRecentFileEntry({ fileName, data }) {
+  const name = String(fileName || '').trim()
+  if (!name || !data) return
+  const baked = bakeTabDataForStorage(data)
+  const list = loadRecentFiles().filter(entry => entry && entry.fileName !== name)
+  list.unshift({ fileName: name, data: baked, updatedAt: Date.now() })
+  if (list.length > RECENT_FILES_LIMIT) list.length = RECENT_FILES_LIMIT
+  saveRecentFiles(list)
+  renderRecentFilesMenu()
+}
+
+function clearRecentFiles() {
+  saveRecentFiles([])
+  renderRecentFilesMenu()
+}
+
+function renderRecentFilesMenu() {
+  if (!recentFilesEl) return
+  const list = loadRecentFiles()
+  const clearBtn = document.querySelector('[data-action="recent-clear"]')
+  if (list.length === 0) {
+    recentFilesEl.innerHTML = '<button type="button" disabled role="menuitem">(No recent files)</button>'
+    if (clearBtn) clearBtn.disabled = true
+    return
+  }
+
+  recentFilesEl.innerHTML = list.map((entry, idx) => {
+    const label = escapeHtml(entry.fileName)
+    return `<button type="button" role="menuitem" data-recent-index="${idx}">${label}</button>`
+  }).join('')
+  if (clearBtn) clearBtn.disabled = false
+}
+
+function openRecentFile(index) {
+  const list = loadRecentFiles()
+  const entry = list[Number(index)]
+  if (!entry?.data) return
+  openScriptInNewTab({ fileName: entry.fileName, fileHandle: null, data: entry.data })
+  addRecentFileEntry({ fileName: entry.fileName, data: entry.data })
+}
+
+recentFilesEl?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-recent-index]')
+  if (!btn) return
+  openRecentFile(btn.dataset.recentIndex)
+  closeAllMenus()
+})
+
 function markDirty() {
   const tab = getActiveTab()
   if (!tab) return
@@ -3548,16 +4416,58 @@ function markSaved() {
   renderTabs()
 }
 
+let lastAutosaveAt = 0
+
+function updateAutosaveStatus() {
+  if (!autosaveStatusDisplay) return
+  if (!lastAutosaveAt) {
+    autosaveStatusDisplay.textContent = ''
+    return
+  }
+  const time = new Date(lastAutosaveAt)
+  const label = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  autosaveStatusDisplay.textContent = `Auto ${label}`
+}
+
+function captureAutosaveSnapshots() {
+  if (!settings.autosaveHistorySnapshots) return
+  tabs.forEach((tab) => {
+    if (!tab?.data) return
+    if (!tab.isDirty) return
+
+    if (!Array.isArray(tab.historySnapshots)) tab.historySnapshots = []
+
+    const state = captureHistoryStateFromData({
+      inputType: 'autosave',
+      label: 'Autosave',
+      domain: 'body',
+      scriptData: tab.data
+    })
+
+    if (!state) return
+
+    const last = tab.historySnapshots[tab.historySnapshots.length - 1]
+    if (last && last.scriptData?.content === state.scriptData?.content && JSON.stringify(last.scriptData?.metadata) === JSON.stringify(state.scriptData?.metadata)) {
+      return
+    }
+
+    tab.historySnapshots.push(state)
+    pruneSnapshots(tab.historySnapshots)
+  })
+}
+
 // Browser Storage Fallback (Auto-save)
 function saveToStorage() {
   persistActiveTabState()
+  captureAutosaveSnapshots()
+  lastAutosaveAt = Date.now()
+  updateAutosaveStatus()
   try {
-    const bakeTabDataForStorage = (data) => {
-      if (!data || typeof data !== 'object') return data
-      const content = typeof data.content === 'string' ? data.content : ''
-      return { ...data, content: bakeDisplayCasingIntoContentHtml(content) }
+    try {
+      localStorage.setItem('sluggo_last_autosave', String(lastAutosaveAt))
+    } catch (_) {
+      // Ignore
     }
-
     const payload = {
       v: 1,
       activeTabId,
@@ -3593,6 +4503,7 @@ async function saveScript(asNew = false) {
       await writable.write(scriptData)
       await writable.close()
       markSaved()
+      addRecentFileEntry({ fileName: tab.fileName, data: getScriptDataForSave() })
     } catch (err) {
       console.error('Save failed:', err)
       alert('Failed to save file.')
@@ -3614,12 +4525,14 @@ async function saveScript(asNew = false) {
       await writable.write(scriptData)
       await writable.close()
       markSaved()
+      addRecentFileEntry({ fileName: tab.fileName, data: getScriptDataForSave() })
     } catch (err) {
       // User cancelled or not supported
       if (err.name !== 'AbortError') {
         // Fallback for browsers without FS API
         downloadFile(scriptData, withPrimaryScriptExtension(tab.fileName), 'application/json')
         markSaved()
+        addRecentFileEntry({ fileName: tab.fileName, data: getScriptDataForSave() })
       }
     }
   }
@@ -3648,6 +4561,7 @@ async function openScript() {
     }
 
     openScriptInNewTab({ fileName: handle.name, fileHandle: handle, data })
+    addRecentFileEntry({ fileName: handle.name, data })
 
   } catch (err) {
     if (err.name !== 'AbortError') {
@@ -3667,6 +4581,7 @@ async function openScript() {
               data = parsePlainTextToScriptData(e.target.result)
             }
             openScriptInNewTab({ fileName: file.name, fileHandle: null, data })
+            addRecentFileEntry({ fileName: file.name, data })
           }
           reader.readAsText(file)
         }
@@ -3814,18 +4729,7 @@ function loadScriptData(data) {
   ensureEditorHasAtLeastOnePage()
 
   if (data.metadata) {
-    const titleEl = document.getElementById('input-title')
-    if (titleEl) titleEl.value = data.metadata.title || ''
-    const taglineEl = document.getElementById('input-tagline')
-    if (taglineEl) taglineEl.value = data.metadata.tagline || ''
-    const authorEl = document.getElementById('input-author')
-    if (authorEl) authorEl.value = data.metadata.author || ''
-    const contactEl = document.getElementById('input-contact')
-    if (contactEl) contactEl.value = data.metadata.contact || ''
-    const dateEl = document.getElementById('input-date')
-    if (dateEl) dateEl.value = data.metadata.date || ''
-    const rightsEl = document.getElementById('input-rights')
-    if (rightsEl) rightsEl.value = data.metadata.rights || ''
+    applyTitlePageMetadata(data.metadata)
   }
 
   scheduleTitlePageTextareaResize()
@@ -4078,8 +4982,21 @@ function clearEditor() {
 // ============================================
 // UI UPDATES
 // ============================================
+let lastUiTextSnapshot = ''
+let lastUiSceneSignature = ''
+
 function updateUI() {
-  const text = editor.innerText
+  const text = editor.textContent || ''
+  const sceneLines = Array.from(editor.querySelectorAll('.el-scene-heading'))
+  const sceneSignature = sceneLines.map(line => (line.textContent || '').trim().toUpperCase()).join('|')
+
+  if (text === lastUiTextSnapshot && sceneSignature === lastUiSceneSignature) {
+    updateHistoryUIState()
+    return
+  }
+
+  lastUiTextSnapshot = text
+  lastUiSceneSignature = sceneSignature
 
   // Word count
   const words = text.split(/\s+/).filter(w => w.length > 0).length
@@ -4090,7 +5007,8 @@ function updateUI() {
   pageCountDisplay.textContent = pages
 
   // Scenes for sidebar
-  const sceneLines = Array.from(editor.querySelectorAll('.el-scene-heading'))
+  // Scenes for sidebar
+  // (sceneLines computed above for signature)
   sceneList.innerHTML = sceneLines.length > 0
     ? sceneLines.map((line, i) => {
       const lineId = `scene-${i}`
@@ -4102,6 +5020,16 @@ function updateUI() {
         `
     }).join('')
     : '<div class="scene-item" style="opacity: 0.5;">No scenes yet</div>'
+
+  sceneList.setAttribute('role', 'listbox')
+  const items = sceneList.querySelectorAll('.scene-item')
+  items.forEach((item, i) => {
+    item.setAttribute('role', 'option')
+    item.setAttribute('tabindex', i === 0 ? '0' : '-1')
+    item.setAttribute('aria-selected', i === 0 ? 'true' : 'false')
+  })
+
+  updateHistoryUIState()
 }
 
 // Sidebar Navigation
@@ -4148,6 +5076,44 @@ sceneList.addEventListener('click', (e) => {
   }
 })
 
+sceneList.addEventListener('keydown', (e) => {
+  if (!['ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter', ' '].includes(e.key)) return
+  const items = Array.from(sceneList.querySelectorAll('.scene-item'))
+  if (items.length === 0) return
+
+  const current = document.activeElement
+  let idx = items.indexOf(current)
+  if (idx < 0) idx = 0
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    const next = items[Math.min(items.length - 1, idx + 1)]
+    next?.focus()
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    const prev = items[Math.max(0, idx - 1)]
+    prev?.focus()
+    return
+  }
+  if (e.key === 'Home') {
+    e.preventDefault()
+    items[0]?.focus()
+    return
+  }
+  if (e.key === 'End') {
+    e.preventDefault()
+    items[items.length - 1]?.focus()
+    return
+  }
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    const target = items[idx]
+    target?.click()
+  }
+})
+
 // Highlight Active Scene in Sidebar
 function highlightActiveScene() {
   const sceneLines = Array.from(editor.querySelectorAll('.el-scene-heading'))
@@ -4164,6 +5130,8 @@ function highlightActiveScene() {
 
   document.querySelectorAll('.scene-item').forEach((item, i) => {
     item.classList.toggle('active', i === activeIndex)
+    item.setAttribute('aria-selected', i === activeIndex ? 'true' : 'false')
+    item.setAttribute('tabindex', i === activeIndex ? '0' : '-1')
   })
 }
 
@@ -4310,6 +5278,17 @@ async function init() {
   loadSettings()
   applySettingsToUI()
 
+  try {
+    const rawAutosave = localStorage.getItem('sluggo_last_autosave')
+    const parsed = Number(rawAutosave)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      lastAutosaveAt = parsed
+      updateAutosaveStatus()
+    }
+  } catch (_) {
+    // Ignore
+  }
+
   applyInitialSidebarState()
 
   updateDarkModeToggleUI()
@@ -4334,7 +5313,10 @@ async function init() {
           fileHandle: null,
           data: t.data,
           isDirty: false,
-          autocompleteData: getDefaultAutocompleteData()
+          autocompleteData: getDefaultAutocompleteData(),
+          history: createHistoryStore(),
+          titleHistory: createHistoryStore(),
+          historySnapshots: []
         }))
         activeTabId = workspace.activeTabId && tabs.some(t => t.id === workspace.activeTabId)
           ? workspace.activeTabId
@@ -4381,6 +5363,7 @@ async function init() {
 
   updateSaveStatusUI()
   renderTabs()
+  renderRecentFilesMenu()
 
   updateUI()
   scheduleTitlePageTextareaResize()
