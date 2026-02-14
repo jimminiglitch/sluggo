@@ -29,6 +29,12 @@
   ],
   "icons": [
     {
+      "src": "./sluggo.ico",
+      "sizes": "16x16 32x32 48x48 64x64 128x128 256x256",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
+    {
       "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",

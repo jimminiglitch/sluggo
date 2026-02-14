@@ -43,6 +43,9 @@
         <div class="menu-dropdown">
           <button data-action="new"><span>New Script</span><kbd>Ctrl+N</kbd></button>
           <button data-action="open"><span>Open...</span><kbd>Ctrl+O</kbd></button>
+          <div class="menu-section-title">Recent</div>
+          <div id="recent-files" class="menu-recent"></div>
+          <button data-action="recent-clear" class="menu-recent-clear"><span>Clear Recent</span></button>
           <div class="menu-divider"></div>
           <button data-action="save"><span>Save</span><kbd>Ctrl+S</kbd></button>
           <button data-action="save-as"><span>Save As...</span><kbd>Ctrl+Shift+S</kbd></button>
@@ -59,7 +62,7 @@
         <button class="menu-trigger">Edit</button>
         <div class="menu-dropdown">
           <button data-action="undo"><span>Undo</span><kbd>Ctrl+Z</kbd></button>
-          <button data-action="redo"><span>Redo</span><kbd>Ctrl+Y</kbd></button>
+          <button data-action="redo"><span>Redo</span><kbd>Ctrl+Y / Ctrl+Shift+Z</kbd></button>
           <button data-action="history"><span>History...</span></button>
           <div class="menu-divider"></div>
           <button data-action="cut"><span>Cut</span><kbd>Ctrl+X</kbd></button>
@@ -139,6 +142,7 @@
           <select id="page-jump" class="top-select" aria-label="Jump to page"></select>
         </label>
         <span id="save-status" class="save-status">Saved</span>
+        <span id="autosave-status" class="autosave-status"></span>
         <span id="current-element" class="element-indicator">Action</span>
       </div>
     </nav>
@@ -246,7 +250,7 @@
         <div class="shortcut-section">
           <h3>Edit</h3>
           <div class="shortcut-row"><kbd>Ctrl+Z</kbd><span>Undo</span></div>
-          <div class="shortcut-row"><kbd>Ctrl+Y</kbd><span>Redo</span></div>
+          <div class="shortcut-row"><kbd>Ctrl+Y / Ctrl+Shift+Z</kbd><span>Redo</span></div>
           <div class="shortcut-row"><kbd>Ctrl+F</kbd><span>Find</span></div>
           <div class="shortcut-row"><kbd>Ctrl+H</kbd><span>Replace</span></div>
         </div>
@@ -348,8 +352,36 @@
 
       <div class="settings-row">
         <label>
+          <input type="checkbox" id="setting-auto-uppercase" />
+          Writing: auto-uppercase scene headings & characters
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-dialogue-enter-character" />
+          Dialogue: Enter creates new character line
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-dialogue-continue-name" />
+          Dialogue: auto-continue character name
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <label>
           <input type="checkbox" id="setting-smart-blank-line-defaults" />
           Writing: smart defaults on blank lines
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="setting-autosave-history" />
+          Autosave: keep history snapshots
         </label>
       </div>
 
@@ -366,6 +398,12 @@
       <div class="form-row">
         <label for="find-query">Find</label>
         <input id="find-query" class="form-input" type="text" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div class="find-options">
+        <label><input type="checkbox" id="find-case" /> Match case</label>
+        <label><input type="checkbox" id="find-whole" /> Whole word</label>
+        <label><input type="checkbox" id="find-highlight" /> Highlight all</label>
       </div>
 
       <div class="form-row replace-row" id="replace-row">
@@ -391,7 +429,14 @@
       <h2>History</h2>
       <p>Browse snapshots. Edit labels and restore any checkpoint.</p>
 
-      <div class="history-list" id="history-list" aria-label="History snapshots"></div>
+      <div class="history-toolbar">
+        <input id="history-search" class="form-input" type="text" placeholder="Filter history…" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div class="history-panel">
+        <div class="history-list" id="history-list" aria-label="History snapshots"></div>
+        <div class="history-preview" id="history-preview" aria-live="polite"></div>
+      </div>
 
       <button class="btn-primary" id="close-history">Close</button>
     </div>
