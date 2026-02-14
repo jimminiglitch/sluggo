@@ -1,3 +1,9 @@
+## [1.0.32](https://github.com/jimminiglitch/sluggo/compare/v1.0.31...v1.0.32) (2026-02-14)
+
+### Features
+
+* enhance pagination and caret movement functionality in screenplay editor ([630f08e](https://github.com/jimminiglitch/sluggo/commit/630f08e83719d728dab40c3a351b01ba6463bc63))
+
 ## [1.0.31](https://github.com/jimminiglitch/sluggo/compare/v1.0.30...v1.0.31) (2026-02-07)
 
 ## [1.0.30](https://github.com/jimminiglitch/sluggo/compare/v1.0.29...v1.0.30) (2026-01-30)
