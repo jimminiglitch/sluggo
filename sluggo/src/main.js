@@ -2862,6 +2862,49 @@ function getCurrentLine() {
   return null
 }
 
+function getPreviousBodyPage(page) {
+  if (!page) return null
+  let prev = page.previousElementSibling
+  while (prev) {
+    if (prev.classList?.contains('screenplay-page') && !prev.classList?.contains('title-page-view')) {
+      return prev
+    }
+    prev = prev.previousElementSibling
+  }
+  return null
+}
+
+function getNextBodyPage(page) {
+  if (!page) return null
+  let next = page.nextElementSibling
+  while (next) {
+    if (next.classList?.contains('screenplay-page') && !next.classList?.contains('title-page-view')) {
+      return next
+    }
+    next = next.nextElementSibling
+  }
+  return null
+}
+
+function ensureNextBodyPage(page) {
+  if (!page) return null
+  return getNextBodyPage(page) || createNewPage(page)
+}
+
+function moveCaretToPageEnd(page) {
+  if (!page) return false
+  const selection = window.getSelection()
+  if (!selection) return false
+  const lastLine = page.lastElementChild
+  if (!lastLine) return false
+  const range = document.createRange()
+  range.selectNodeContents(lastLine)
+  range.collapse(false)
+  selection.removeAllRanges()
+  selection.addRange(range)
+  return true
+}
+
 function ensureLineExists() {
   const selection = window.getSelection()
 
@@ -3118,6 +3161,8 @@ editor.addEventListener('keydown', (e) => {
     handleEnter(e)
   } else if (e.key === 'Backspace') {
     handleBackspace(e)
+  } else if (e.key === 'Delete') {
+    handleDelete(e)
   } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
     // Optional: Custom navigation if default behavior fails
     // handleArrowKeys(e) 
@@ -3134,39 +3179,37 @@ editor.addEventListener('beforeinput', (e) => {
 }, { capture: true })
 
 function handleBackspace(e) {
+  tryJumpToPreviousPage(e)
+}
+
+function tryJumpToPreviousPage(e) {
   const selection = window.getSelection()
-  if (!selection.isCollapsed) return
+  if (!selection?.isCollapsed) return false
 
   const page = getCurrentPage()
-  if (!page) return
+  if (!page) return false
 
-  // If at start of page (cursor 0 of first child)
-  if (selection.anchorOffset === 0) {
-    const line = getCurrentLine()
-    if (line === page.firstElementChild) {
-      // We are at start of page
-      const prevPage = page.previousElementSibling
-      if (prevPage && prevPage.classList.contains('screenplay-page') && !prevPage.classList.contains('title-page-view')) {
-        e.preventDefault()
-        // Move cursor to end of previous page
-        const lastLine = prevPage.lastElementChild
-        if (lastLine) {
-          const range = document.createRange()
-          range.selectNodeContents(lastLine)
-          range.collapse(false)
-          selection.removeAllRanges()
-          selection.addRange(range)
+  if (selection.anchorOffset !== 0) return false
+  const line = getCurrentLine()
+  if (!line || line !== page.firstElementChild) return false
 
-          // If page is empty, delete it?
-          if (page.innerText.trim() === '') {
-            page.remove()
-            updateUI()
-          }
-          markDirty()
-        }
-      }
+  const prevPage = getPreviousBodyPage(page)
+  if (!prevPage) return false
+
+  e.preventDefault()
+  if (moveCaretToPageEnd(prevPage)) {
+    if (page.innerText.trim() === '') {
+      page.remove()
+      updateUI()
     }
+    markDirty()
   }
+
+  return true
+}
+
+function handleDelete(e) {
+  tryJumpToPreviousPage(e)
 }
 
 // Pagination Logic
@@ -3388,10 +3431,26 @@ function handleEnter(e) {
   }
 
   const page = getCurrentPage()
-  if (currentLine && currentLine.parentElement === page) {
-    currentLine.after(newPara)
+  let targetPage = page
+  const isLastLineOnPage = !!(page && currentLine && currentLine.parentElement === page && currentLine === page.lastElementChild)
+  if (isLastLineOnPage) {
+    const nextPage = ensureNextBodyPage(page)
+    if (nextPage) targetPage = nextPage
+  }
+
+  if (targetPage === page) {
+    if (currentLine && currentLine.parentElement === page) {
+      currentLine.after(newPara)
+    } else if (page) {
+      page.appendChild(newPara)
+    }
   } else {
-    page.appendChild(newPara)
+    const firstChild = targetPage.firstElementChild
+    if (firstChild) {
+      targetPage.insertBefore(newPara, firstChild)
+    } else {
+      targetPage.appendChild(newPara)
+    }
   }
 
   // Move cursor
