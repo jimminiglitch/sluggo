@@ -4217,26 +4217,10 @@ function handleEnter(e) {
   }
 
   const page = getCurrentPage()
-  let targetPage = page
-  const isLastLineOnPage = !!(page && currentLine && currentLine.parentElement === page && currentLine === page.lastElementChild)
-  if (isLastLineOnPage) {
-    const nextPage = ensureNextBodyPage(page)
-    if (nextPage) targetPage = nextPage
-  }
-
-  if (targetPage === page) {
-    if (currentLine && currentLine.parentElement === page) {
-      currentLine.after(newPara)
-    } else if (page) {
-      page.appendChild(newPara)
-    }
-  } else {
-    const firstChild = targetPage.firstElementChild
-    if (firstChild) {
-      targetPage.insertBefore(newPara, firstChild)
-    } else {
-      targetPage.appendChild(newPara)
-    }
+  if (currentLine && currentLine.parentElement === page) {
+    currentLine.after(newPara)
+  } else if (page) {
+    page.appendChild(newPara)
   }
 
   // Move cursor
