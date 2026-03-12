@@ -1,3 +1,9 @@
+## [1.0.35](https://github.com/jimminiglitch/sluggo/compare/v1.0.34...v1.0.35) (2026-03-12)
+
+### Bug Fixes
+
+* correct Enter key behavior to add new line on same page unless page is full ([023471c](https://github.com/jimminiglitch/sluggo/commit/023471c6c5246ef4f8b46fa6a77576458536ecfe))
+
 ## [1.0.34](https://github.com/jimminiglitch/sluggo/compare/v1.0.33...v1.0.34) (2026-03-12)
 
 ## [1.0.33](https://github.com/jimminiglitch/sluggo/compare/v1.0.32...v1.0.33) (2026-02-19)
