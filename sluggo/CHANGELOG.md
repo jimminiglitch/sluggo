@@ -1,3 +1,5 @@
+## [1.0.34](https://github.com/jimminiglitch/sluggo/compare/v1.0.33...v1.0.34) (2026-03-12)
+
 ## [1.0.33](https://github.com/jimminiglitch/sluggo/compare/v1.0.32...v1.0.33) (2026-02-19)
 
 ## [1.0.32](https://github.com/jimminiglitch/sluggo/compare/v1.0.31...v1.0.32) (2026-02-14)
