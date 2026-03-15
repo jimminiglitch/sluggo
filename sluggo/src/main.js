@@ -970,6 +970,22 @@ function getLineFromNode(node) {
   return null
 }
 
+function getNextLine(line) {
+  if (!line) return null
+  if (line.nextElementSibling) return line.nextElementSibling
+  const page = line.parentElement
+  const nextPage = getNextBodyPage(page)
+  return nextPage?.firstElementChild || null
+}
+
+function getPrevLine(line) {
+  if (!line) return null
+  if (line.previousElementSibling) return line.previousElementSibling
+  const page = line.parentElement
+  const prevPage = getPreviousBodyPage(page)
+  return prevPage?.lastElementChild || null
+}
+
 function compareDomOrder(a, b) {
   if (a === b) return 0
   if (!a || !b) return 0
@@ -2108,26 +2124,17 @@ if (window.launchQueue && typeof window.launchQueue.setConsumer === 'function') 
   window.launchQueue.setConsumer(async (launchParams) => {
     const files = launchParams?.files
     if (!files || !files.length) return
-    for (const fh of files) {
-      await openFileHandleViaPwa(fh)
+    for (const line of lines) {
+      const trimmed = (line ?? '').trim()
+      const element = determineElementForPlainTextLine(line)
+      const cls = getElementClass(element)
+
+      if (!trimmed) {
+        pageLines.push(`<div class="${cls}"><br></div>`)
+      } else {
+        pageLines.push(`<div class="${cls}">${escapeHtml(trimmed)}</div>`)
+      }
     }
-  })
-}
-
-function updateInstallMenuVisibility() {
-  const installBtn = document.querySelector('[data-action="install-app"]')
-  const uninstallBtn = document.querySelector('[data-action="uninstall-app"]')
-  if (!installBtn || !uninstallBtn) return
-
-  // Dev ergonomics: the install prompt isn't meaningful on Vite dev server and
-  // can be disruptive if triggered accidentally.
-  if (import.meta.env.DEV) {
-    installBtn.hidden = true
-    uninstallBtn.hidden = true
-    return
-  }
-
-  const standalone = isRunningStandalone()
   installBtn.hidden = standalone
   uninstallBtn.hidden = !standalone
 }
@@ -3044,20 +3051,9 @@ function buildSearchIndex() {
   let text = ''
   nodes.forEach(n => {
     starts.set(n, text.length)
-    text += n.nodeValue || ''
-  })
-  return { nodes, starts, text }
-}
-
-function clearFindHighlights() {
-  if (!findHighlightsActive) return
-  document.querySelectorAll('mark.find-highlight[data-find-highlight="1"]').forEach(mark => {
-    const parent = mark.parentNode
-    if (!parent) return
-    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark)
-    parent.removeChild(mark)
-    parent.normalize()
-  })
+    const element = determineElementForPlainTextLine(line)
+    const div = document.createElement('div')
+    div.className = getElementClass(element)
   findHighlightsActive = false
 }
 
@@ -3590,8 +3586,42 @@ function ensureLineExists() {
   return currentLine
 }
 
+function getSelectedLinesForFormatting() {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null
+  const startLine = getLineFromNode(selection.anchorNode)
+  const endLine = getLineFromNode(selection.focusNode)
+  if (!startLine || !endLine) return null
+  const forward = compareDomOrder(startLine, endLine) <= 0
+  const first = forward ? startLine : endLine
+  const last = forward ? endLine : startLine
+  const lines = []
+  let cursor = first
+  while (cursor) {
+    lines.push(cursor)
+    if (cursor === last) break
+    cursor = getNextLine(cursor)
+  }
+  return lines.length > 0 ? lines : null
+}
+
+function applyLineElementClass(line, element) {
+  if (!line) return
+  Object.values(ELEMENT_CLASSES).forEach(cls => line.classList.remove(cls))
+  line.classList.add(getElementClass(element))
+}
+
 function applyElementToCurrentLine(element) {
   if (isTitlePageCaretActive() || !isBodyVisible()) return
+
+  const selectionLines = getSelectedLinesForFormatting()
+  if (selectionLines && selectionLines.length > 1) {
+    recordHistoryCheckpoint({ inputType: 'format' })
+    selectionLines.forEach(line => applyLineElementClass(line, element))
+    markDirty()
+    setElement(element)
+    return
+  }
 
   recordHistoryCheckpoint({ inputType: 'format' })
 
@@ -3602,7 +3632,6 @@ function applyElementToCurrentLine(element) {
     return
   }
 
-  const newClass = getElementClass(element)
   const selection = window.getSelection()
   const range = selection.getRangeAt(0)
 
@@ -3692,8 +3721,7 @@ function applyElementToCurrentLine(element) {
   const prevElement = getElementForLine(line)
 
   // Update class
-  Object.values(ELEMENT_CLASSES).forEach(cls => line.classList.remove(cls))
-  line.classList.add(newClass)
+  applyLineElementClass(line, element)
 
   // Parenthetical helper (optional):
   // - When switching TO parenthetical: wrap existing text in ( ... ) (or insert "()" if empty).
@@ -4072,28 +4100,6 @@ function checkPageOverflow() {
   updatePageNumberAttributes()
 }
 
-editor.addEventListener('input', (e) => {
-  if (findHighlightsActive) clearFindHighlights()
-  markDirty()
-  maybeUppercaseCurrentLine()
-  checkPageOverflow()
-  updatePageNumberAttributes()
-
-  // Autocomplete trigger
-  if (['character', 'scene-heading'].includes(currentElement)) {
-    showAutocomplete()
-  } else {
-    hideAutocomplete()
-  }
-
-  clearTimeout(editor.updateTimeout)
-  editor.updateTimeout = setTimeout(() => {
-    updateUI()
-    highlightActiveScene()
-    updateAutocompleteData()
-  }, 300)
-})
-
 function handleEnter(e) {
   e.preventDefault()
   hideAutocomplete()
@@ -4358,10 +4364,65 @@ function updateCurrentElementFromCursor() {
   hideAutocomplete()
 }
 
+function handleEditorContentChange() {
+  markDirty()
+  maybeUppercaseCurrentLine()
+  checkPageOverflow()
+  updatePageNumberAttributes()
+
+  if (['character', 'scene-heading'].includes(currentElement)) {
+    showAutocomplete()
+  } else {
+    hideAutocomplete()
+  }
+
+  clearTimeout(editor.updateTimeout)
+  editor.updateTimeout = setTimeout(() => {
+    updateUI()
+    highlightActiveScene()
+    updateAutocompleteData()
+  }, 300)
+}
+
+editor.addEventListener('input', (e) => {
+  if (findHighlightsActive) clearFindHighlights()
+  handleEditorContentChange()
+})
+
+function handlePasteFormatting(text) {
+  const normalized = String(text || '').split(/\r?\n/)
+  if (!normalized.length) return
+  let currentLine = getCurrentLine()
+  if (!currentLine) return
+
+  const insertedLines = []
+  let cursor = currentLine
+  for (let i = normalized.length - 1; i >= 0; i--) {
+    insertedLines.unshift(cursor)
+    cursor = getPrevLine(cursor)
+    if (!cursor) break
+  }
+
+  const offset = Math.max(0, normalized.length - insertedLines.length)
+  insertedLines.forEach((lineEl, idx) => {
+    if (!lineEl) return
+    const rawLine = normalized[offset + idx] || ''
+    const element = determineElementForPlainTextLine(rawLine)
+    applyLineElementClass(lineEl, element)
+  })
+
+  const lastText = normalized[normalized.length - 1] || ''
+  setElement(determineElementForPlainTextLine(lastText))
+}
+
 editor.addEventListener('paste', (e) => {
   e.preventDefault()
-  const text = e.clipboardData.getData('text/plain')
+  const text = e.clipboardData?.getData('text/plain')
+  if (!text) return
   document.execCommand('insertText', false, text)
+  if (findHighlightsActive) clearFindHighlights()
+  handlePasteFormatting(text)
+  handleEditorContentChange()
 })
 
 // ============================================
@@ -4660,23 +4721,27 @@ function getTemplateScriptData({ title = '', author = '', contact = '', date = '
   }
 }
 
+function determineElementForPlainTextLine(rawLine) {
+  const trimmed = String(rawLine || '').trim()
+  if (!trimmed) return 'action'
+  if (/^FADE IN:?/i.test(trimmed)) return 'fade-in'
+  if (/^(INT|EXT|EST|INT\.?\/EXT)[\.\s]/i.test(trimmed)) return 'scene-heading'
+  if (/^>/.test(trimmed) || / TO:$/i.test(trimmed)) return 'transition'
+  if (/^\(.*\)$/.test(trimmed)) return 'parenthetical'
+  if (trimmed === trimmed.toUpperCase() && /^[A-Z]/.test(trimmed) && trimmed.length > 0 && trimmed.length < 30) {
+    return 'character'
+  }
+  return 'action'
+}
+
 function parsePlainTextToScriptData(text) {
   const lines = text.split('\n')
   const pageLines = []
 
   for (const line of lines) {
     const trimmed = (line ?? '').trim()
-    let cls = 'el-action'
-
-    if (/^(INT|EXT|EST|INT\.?\/EXT)[\.\s]/i.test(trimmed)) {
-      cls = 'el-scene-heading'
-    } else if (/^>/.test(trimmed) || / TO:$/i.test(trimmed)) {
-      cls = 'el-transition'
-    } else if (/^\(.*\)$/.test(trimmed)) {
-      cls = 'el-parenthetical'
-    } else if (trimmed === trimmed.toUpperCase() && /^[A-Z]/.test(trimmed) && trimmed.length > 0 && trimmed.length < 30) {
-      cls = 'el-character'
-    }
+    const element = determineElementForPlainTextLine(line)
+    const cls = getElementClass(element)
 
     if (!trimmed) {
       pageLines.push(`<div class="${cls}"><br></div>`)
