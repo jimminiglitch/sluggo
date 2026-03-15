@@ -1,3 +1,9 @@
+## [1.0.37](https://github.com/jimminiglitch/sluggo/compare/v1.0.36...v1.0.37) (2026-03-15)
+
+### Bug Fixes
+
+* ensure findHighlightsActive is defined before clearing highlights ([eae7da0](https://github.com/jimminiglitch/sluggo/commit/eae7da08e6a06846af78fc32b32d1fedfecdd179))
+
 ## [1.0.36](https://github.com/jimminiglitch/sluggo/compare/v1.0.35...v1.0.36) (2026-03-15)
 
 ### Features
