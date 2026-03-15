@@ -1,3 +1,9 @@
+## [1.0.36](https://github.com/jimminiglitch/sluggo/compare/v1.0.35...v1.0.36) (2026-03-15)
+
+### Features
+
+* enhance text formatting and line handling in editor ([92ac459](https://github.com/jimminiglitch/sluggo/commit/92ac4593d463a861061392010205c2390fbcf193))
+
 ## [1.0.35](https://github.com/jimminiglitch/sluggo/compare/v1.0.34...v1.0.35) (2026-03-12)
 
 ### Bug Fixes
