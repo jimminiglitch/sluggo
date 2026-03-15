@@ -4388,29 +4388,71 @@ editor.addEventListener('input', (e) => {
   handleEditorContentChange()
 })
 
-function handlePasteFormatting(text) {
-  const normalized = String(text || '').split(/\r?\n/)
-  if (!normalized.length) return
-  let currentLine = getCurrentLine()
+function insertPasteLinesAtCaret(rawText) {
+  const lines = String(rawText || '').split(/\r?\n/)
+  if (!lines.length) return
+
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) return
+  const range = selection.getRangeAt(0)
+
+  let currentLine = getLineFromNode(range.startContainer) || ensureLineExists()
   if (!currentLine) return
 
-  const insertedLines = []
-  let cursor = currentLine
-  for (let i = normalized.length - 1; i >= 0; i--) {
-    insertedLines.unshift(cursor)
-    cursor = getPrevLine(cursor)
-    if (!cursor) break
+  const splitRange = document.createRange()
+  splitRange.setStart(range.startContainer, range.startOffset)
+  splitRange.setEnd(currentLine, currentLine.childNodes.length)
+  const trailingFragment = splitRange.extractContents()
+
+  const insertedTextNodes = []
+  const applyTextToLine = (lineEl, text) => {
+    if (text) {
+      lineEl.querySelectorAll(':scope > br').forEach(br => br.remove())
+      const node = document.createTextNode(text)
+      lineEl.appendChild(node)
+      insertedTextNodes.push(node)
+    } else if (!lineEl.textContent.trim()) {
+      if (!lineEl.querySelector('br')) lineEl.innerHTML = '<br>'
+    }
   }
 
-  const offset = Math.max(0, normalized.length - insertedLines.length)
-  insertedLines.forEach((lineEl, idx) => {
-    if (!lineEl) return
-    const rawLine = normalized[offset + idx] || ''
-    const element = determineElementForPlainTextLine(rawLine)
-    applyLineElementClass(lineEl, element)
-  })
+  const firstLineText = lines[0] || ''
+  applyTextToLine(currentLine, firstLineText)
+  applyLineElementClass(currentLine, determineElementForPlainTextLine(firstLineText))
 
-  const lastText = normalized[normalized.length - 1] || ''
+  let lastLine = currentLine
+  for (let i = 1; i < lines.length; i++) {
+    const lineText = lines[i]
+    const newLine = document.createElement('div')
+    newLine.className = getElementClass(determineElementForPlainTextLine(lineText))
+    if (lineText) {
+      const node = document.createTextNode(lineText)
+      newLine.appendChild(node)
+      insertedTextNodes.push(node)
+    } else {
+      newLine.innerHTML = '<br>'
+    }
+    lastLine.after(newLine)
+    lastLine = newLine
+  }
+
+  if (trailingFragment && trailingFragment.childNodes.length > 0) {
+    lastLine.appendChild(trailingFragment)
+  } else if (!lastLine.textContent.trim() && !lastLine.querySelector('br')) {
+    lastLine.innerHTML = '<br>'
+  }
+
+  const caretNode = insertedTextNodes[insertedTextNodes.length - 1]
+  const caretRange = document.createRange()
+  if (caretNode) {
+    caretRange.setStart(caretNode, caretNode.length)
+  } else {
+    caretRange.selectNodeContents(lastLine)
+    caretRange.collapse(false)
+  }
+  selection.removeAllRanges()
+  selection.addRange(caretRange)
+  const lastText = lines[lines.length - 1] || ''
   setElement(determineElementForPlainTextLine(lastText))
 }
 
@@ -4418,9 +4460,8 @@ editor.addEventListener('paste', (e) => {
   e.preventDefault()
   const text = e.clipboardData?.getData('text/plain')
   if (!text) return
-  document.execCommand('insertText', false, text)
   if (typeof findHighlightsActive !== 'undefined' && findHighlightsActive) clearFindHighlights()
-  handlePasteFormatting(text)
+  insertPasteLinesAtCaret(text)
   handleEditorContentChange()
 })
 
