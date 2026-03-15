@@ -1,3 +1,9 @@
+## [1.0.38](https://github.com/jimminiglitch/sluggo/compare/v1.0.37...v1.0.38) (2026-03-15)
+
+### Features
+
+* improve paste handling by inserting lines at caret position ([92c3ac7](https://github.com/jimminiglitch/sluggo/commit/92c3ac70b809a2957c9b3ce3d988a725e207905b))
+
 ## [1.0.37](https://github.com/jimminiglitch/sluggo/compare/v1.0.36...v1.0.37) (2026-03-15)
 
 ### Bug Fixes
