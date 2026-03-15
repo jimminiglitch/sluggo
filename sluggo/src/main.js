@@ -3051,10 +3051,9 @@ function buildSearchIndex() {
   let text = ''
   nodes.forEach(n => {
     starts.set(n, text.length)
-    const element = determineElementForPlainTextLine(line)
-    const div = document.createElement('div')
-    div.className = getElementClass(element)
-  findHighlightsActive = false
+    text += n.nodeValue || ''
+  })
+  return { nodes, starts, text }
 }
 
 function applyFindHighlights(query, options) {
@@ -4385,7 +4384,7 @@ function handleEditorContentChange() {
 }
 
 editor.addEventListener('input', (e) => {
-  if (findHighlightsActive) clearFindHighlights()
+  if (typeof findHighlightsActive !== 'undefined' && findHighlightsActive) clearFindHighlights()
   handleEditorContentChange()
 })
 
@@ -4420,7 +4419,7 @@ editor.addEventListener('paste', (e) => {
   const text = e.clipboardData?.getData('text/plain')
   if (!text) return
   document.execCommand('insertText', false, text)
-  if (findHighlightsActive) clearFindHighlights()
+  if (typeof findHighlightsActive !== 'undefined' && findHighlightsActive) clearFindHighlights()
   handlePasteFormatting(text)
   handleEditorContentChange()
 })
