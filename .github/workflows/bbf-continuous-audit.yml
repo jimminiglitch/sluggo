@@ -1,0 +1,75 @@
+name: BBF Continuous Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run generic repo audit
+        id: audit
+        shell: bash
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, json, sys
+          root = Path('.').resolve(); reports = root / 'reports'; reports.mkdir(exist_ok=True)
+          failures=[]; warnings=[]
+          if not (root/'README.md').exists(): failures.append('Missing `README.md`')
+          if not (root/'AGENTS.md').exists(): warnings.append('Missing `AGENTS.md`')
+          if not (root/'.github'/'copilot-instructions.md').exists(): warnings.append('Missing `.github/copilot-instructions.md`')
+          ref_re = re.compile(r'''(?:href|src)=["\']([^"\']+)["\']|\[[^\]]+\]\(([^)]+)\)''')
+          for path in list(root.rglob('*.md')) + list(root.rglob('*.html')):
+            if '.git' in path.parts or 'node_modules' in path.parts: continue
+            text = path.read_text(encoding='utf-8', errors='ignore')
+            for a,b in ref_re.findall(text):
+              ref=(a or b)
+              if not ref or ref.startswith(('http://','https://','mailto:','tel:','#','data:')): continue
+              ref=ref.split('#',1)[0].split('?',1)[0].strip()
+              if not ref: continue
+              if not (path.parent/ref).resolve().exists(): warnings.append(f'Broken local reference in `{path.relative_to(root)}` -> `{ref}`')
+          lines=['# Continuous Audit Report','',f'- Failures: {len(failures)}',f'- Warnings: {len(warnings)}','']
+          if failures: lines += ['## Failures','']+[f'- {x}' for x in failures]+['']
+          if warnings: lines += ['## Warnings','']+[f'- {x}' for x in warnings]+['']
+          if not failures and not warnings: lines += ['All checks passed.','']
+          (reports/'continuous_audit.md').write_text('\n'.join(lines), encoding='utf-8')
+          (reports/'continuous_audit_summary.json').write_text(json.dumps({'failures':len(failures),'warnings':len(warnings)}, indent=2), encoding='utf-8')
+          print('\n'.join(lines)); sys.exit(1 if failures else 0)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: continuous-audit-report
+          path: reports/
+      - name: Create or update audit issue on failure
+        if: steps.audit.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs'); const title = 'Continuous audit: action items'; const body = fs.readFileSync('reports/continuous_audit.md', 'utf8');
+            const { owner, repo } = context.repo; const issues = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 });
+            const existing = issues.data.find(issue => issue.title === title);
+            if (existing) await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+            else await github.rest.issues.create({ owner, repo, title, body, labels: ['audit', 'automation'] });
+      - name: Close audit issue on pass
+        if: steps.audit.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Continuous audit: action items'; const { owner, repo } = context.repo;
+            const issues = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 }); const existing = issues.data.find(issue => issue.title === title);
+            if (existing) await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+      - name: Fail workflow if audit failed
+        if: steps.audit.outcome == 'failure'
+        run: exit 1
