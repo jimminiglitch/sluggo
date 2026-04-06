@@ -48,7 +48,7 @@ jobs:
           (reports/'continuous_audit_summary.json').write_text(json.dumps({'failures':len(failures),'warnings':len(warnings)}, indent=2), encoding='utf-8')
           print('\n'.join(lines)); sys.exit(1 if failures else 0)
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: continuous-audit-report
           path: reports/
