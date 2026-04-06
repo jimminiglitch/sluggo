@@ -54,7 +54,7 @@ jobs:
           path: reports/
       - name: Create or update audit issue on failure
         if: steps.audit.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs'); const title = 'Continuous audit: action items'; const body = fs.readFileSync('reports/continuous_audit.md', 'utf8');
@@ -64,7 +64,7 @@ jobs:
             else await github.rest.issues.create({ owner, repo, title, body, labels: ['audit', 'automation'] });
       - name: Close audit issue on pass
         if: steps.audit.outcome == 'success'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const title = 'Continuous audit: action items'; const { owner, repo } = context.repo;
