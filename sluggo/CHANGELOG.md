@@ -1,3 +1,9 @@
+## [1.0.44](https://github.com/jimminiglitch/sluggo/compare/v1.0.43...v1.0.44) (2026-04-23)
+
+### Bug Fixes
+
+* correct launchQueue file handler to iterate files not lines ([7265c8f](https://github.com/jimminiglitch/sluggo/commit/7265c8fd959805d3189234fc40d44767a62b0f47))
+
 ## [1.0.43](https://github.com/jimminiglitch/sluggo/compare/v1.0.42...v1.0.43) (2026-04-10)
 
 ## [1.0.42](https://github.com/jimminiglitch/sluggo/compare/v1.0.41...v1.0.42) (2026-04-05)
