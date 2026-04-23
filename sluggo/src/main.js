@@ -856,7 +856,7 @@ const DEFAULT_SETTINGS = {
   sceneHeadingsIntExtStyle: 'INT./EXT.',
   parentheticalsAutoParens: true,
   autoUppercaseLines: true,
-  dialogueEnterCharacter: true,
+  dialogueEnterCharacter: false,
   dialogueContinueName: true,
   smartBlankLineDefaults: true,
   autosaveHistorySnapshots: false
@@ -3786,7 +3786,31 @@ function applyElementToCurrentLine(element) {
   markDirty()
 }
 
-function cycleElementOnCurrentLine() {
+function cycleElementOnCurrentLine(direction = 1) {
+  // Context-aware Tab cycling — mirrors Final Draft / Arc Studio / Highland:
+  //   Tab forward:  action→character, character→parenthetical,
+  //                 parenthetical→dialogue, dialogue→action,
+  //                 scene-heading→action, transition→scene-heading
+  //   Shift+Tab:    reverses the above
+  const TAB_FORWARD = {
+    'action':        'character',
+    'character':     'parenthetical',
+    'parenthetical': 'dialogue',
+    'dialogue':      'action',
+    'scene-heading': 'action',
+    'transition':    'scene-heading',
+    'fade-in':       'action'
+  }
+  const TAB_BACKWARD = {
+    'action':        'dialogue',
+    'character':     'action',
+    'parenthetical': 'character',
+    'dialogue':      'parenthetical',
+    'scene-heading': 'transition',
+    'transition':    'scene-heading',
+    'fade-in':       'action'
+  }
+
   let line = getCurrentLine()
   if (!line) line = ensureLineExists()
   if (!line) return
@@ -3799,8 +3823,8 @@ function cycleElementOnCurrentLine() {
     }
   }
 
-  const idx = ELEMENT_ORDER.indexOf(lineElement)
-  const nextElement = ELEMENT_ORDER[(idx + 1) % ELEMENT_ORDER.length]
+  const map = direction >= 0 ? TAB_FORWARD : TAB_BACKWARD
+  const nextElement = map[lineElement] ?? 'action'
   applyElementToCurrentLine(nextElement)
 }
 
@@ -3837,7 +3861,7 @@ editor.addEventListener('keydown', (e) => {
 
   if (e.key === 'Tab') {
     e.preventDefault()
-    cycleElementOnCurrentLine()
+    cycleElementOnCurrentLine(e.shiftKey ? -1 : 1)
   } else if (e.key === 'Enter') {
     handleEnter(e)
   } else if (e.key === 'Backspace') {
@@ -3937,6 +3961,22 @@ editor.addEventListener('beforeinput', (e) => {
 }, { capture: true })
 
 function handleBackspace(e) {
+  const selection = window.getSelection()
+  // If the caret is collapsed on an empty non-action line, revert the element
+  // type to action instead of treating this as a cross-page merge. This lets
+  // writers easily escape from a wrong format (e.g. an accidental Character
+  // line) by pressing Backspace on a blank line.
+  if (selection?.isCollapsed) {
+    const line = getCurrentLine()
+    const lineText = (line?.textContent || '').trim()
+    if (line && lineText === '' && !line.classList.contains('el-action')) {
+      e.preventDefault()
+      applyLineElementClass(line, 'action')
+      setElement('action')
+      markDirty()
+      return
+    }
+  }
   tryJumpToPreviousPage(e)
 }
 
@@ -4176,28 +4216,50 @@ function handleEnter(e) {
     return ''
   }
 
-  // Determine new element
-  let newElement = currentElement
-  const transitions = {
-    'scene-heading': 'action',
-    'character': 'dialogue',
-    'dialogue': settings.dialogueEnterCharacter ? 'character' : 'dialogue',
-    'parenthetical': 'dialogue',
-    'transition': 'scene-heading'
-  }
+  // Determine new element.
+  // Always read the element type from the DOM to avoid stale-state bugs.
+  const domElement = getElementForLine(currentLine) || currentElement
+  const lineText = (currentLine?.textContent || '').trim()
+  let newElement = domElement
+
   if (movedTrailingContent) {
-    // Split line: keep the same element type for the moved content.
-    newElement = getElementForLine(currentLine)
-  } else if (currentElement === 'dialogue') {
-    const isBlank = (currentLine?.textContent || '').trim() === ''
-    if (isBlank) {
-      newElement = 'action'
-    } else {
-      newElement = transitions[currentElement] || 'action'
-    }
+    // Split line: new line keeps the same type as the line being split.
+    newElement = domElement
   } else {
-    // End-of-line behavior: keep the existing smart transitions.
-    newElement = transitions[currentElement] || 'action'
+    // Industry-standard Enter transitions:
+    //   scene-heading  → action
+    //   action         → action   (stay)
+    //   character      → dialogue (only if name was typed; empty → action to abandon)
+    //   parenthetical  → dialogue
+    //   dialogue       → action   (exit the dialogue block; use Tab to re-enter)
+    //   transition     → scene-heading
+    switch (domElement) {
+      case 'scene-heading':
+        newElement = 'action'
+        break
+      case 'character':
+        // Empty character line means the user is abandoning the entry — go back to action.
+        newElement = lineText === '' ? 'action' : 'dialogue'
+        break
+      case 'parenthetical':
+        newElement = 'dialogue'
+        break
+      case 'dialogue':
+        // Power-user option: if enabled, non-empty dialogue loops back to character
+        // so the writer can keep the same speaker going without using Tab.
+        if (settings.dialogueEnterCharacter && lineText !== '') {
+          newElement = 'character'
+        } else {
+          newElement = 'action'
+        }
+        break
+      case 'transition':
+        newElement = 'scene-heading'
+        break
+      default:
+        newElement = 'action'
+        break
+    }
   }
 
   // Create new line
@@ -4348,7 +4410,7 @@ function updateCurrentElementFromCursor() {
   const smartElement = maybeSmartDefaultBlankLine(line)
   if (smartElement) {
     setElement(smartElement)
-    markDirty()
+    // Note: navigation-driven type inference does NOT mark the document dirty.
     return
   }
 
