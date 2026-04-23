@@ -31,6 +31,9 @@ function isNavigationRequest(request) {
 self.addEventListener('fetch', (event) => {
     const { request } = event
     if (request.method !== 'GET') return
+    // Only cache http/https — chrome-extension:// and other schemes are not cacheable.
+    const url = new URL(request.url)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return
 
     // Navigation: network-first so users get updates, but allow offline fallback.
     if (isNavigationRequest(request)) {

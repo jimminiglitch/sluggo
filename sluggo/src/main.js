@@ -522,6 +522,8 @@ const titleToggleBtn = document.getElementById('title-toggle')
 const bodyToggleBtn = document.getElementById('body-toggle')
 const pageNumbersToggle = document.getElementById('page-numbers-toggle')
 const pageJumpSelect = document.getElementById('page-jump')
+const installBtn = document.querySelector('[data-action="install-app"]')
+const uninstallBtn = document.querySelector('[data-action="uninstall-app"]')
 
 const VIEW_PAGE_NUMBERS_KEY = 'sluggo_view_page_numbers'
 
