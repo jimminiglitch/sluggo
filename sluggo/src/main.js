@@ -2124,17 +2124,14 @@ if (window.launchQueue && typeof window.launchQueue.setConsumer === 'function') 
   window.launchQueue.setConsumer(async (launchParams) => {
     const files = launchParams?.files
     if (!files || !files.length) return
-    for (const line of lines) {
-      const trimmed = (line ?? '').trim()
-      const element = determineElementForPlainTextLine(line)
-      const cls = getElementClass(element)
-
-      if (!trimmed) {
-        pageLines.push(`<div class="${cls}"><br></div>`)
-      } else {
-        pageLines.push(`<div class="${cls}">${escapeHtml(trimmed)}</div>`)
-      }
+    for (const fileHandle of files) {
+      await openFileHandleViaPwa(fileHandle)
     }
+  })
+}
+
+function updateInstallMenuVisibility() {
+  const standalone = isRunningStandalone()
   installBtn.hidden = standalone
   uninstallBtn.hidden = !standalone
 }
