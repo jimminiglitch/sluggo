@@ -1,3 +1,13 @@
+## [1.0.45](https://github.com/jimminiglitch/sluggo/compare/v1.0.44...v1.0.45) (2026-04-23)
+
+### Features
+
+* add install and uninstall buttons for app management ([91c4933](https://github.com/jimminiglitch/sluggo/commit/91c4933cea928c96c0191f3c1f7c3f168f08b91d))
+
+### Bug Fixes
+
+* resolve npm audit vulnerabilities and add dependabot auto-merge ([7a41e65](https://github.com/jimminiglitch/sluggo/commit/7a41e6595692b647501dc6d9bfd163a37c2d34bb))
+
 ## [1.0.44](https://github.com/jimminiglitch/sluggo/compare/v1.0.43...v1.0.44) (2026-04-23)
 
 ### Bug Fixes
