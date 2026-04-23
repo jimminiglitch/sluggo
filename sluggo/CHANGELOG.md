@@ -1,3 +1,9 @@
+## [1.0.46](https://github.com/jimminiglitch/sluggo/compare/v1.0.45...v1.0.46) (2026-04-23)
+
+### Features
+
+* enhance element cycling and backspace behavior for screenplay editing ([8efe7b2](https://github.com/jimminiglitch/sluggo/commit/8efe7b2f1761852ba1d29df1636ac855583a6db6))
+
 ## [1.0.45](https://github.com/jimminiglitch/sluggo/compare/v1.0.44...v1.0.45) (2026-04-23)
 
 ### Features
